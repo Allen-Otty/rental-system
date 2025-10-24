@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RentSwipe - Find Your Dream Home</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <meta name="theme-color" content="#2c3e50">
+</head>
+<body>
+    <header>
+        <nav>
+            <div class="logo">RentSwipe</div>
+            <div class="nav-links">
+                <a href="#" class="active">Home</a>
+                <a href="#">Explore</a>
+                <a href="#">Saved</a>
+                <a href="#">Messages</a>
+            </div>
+            <div class="auth-buttons">
+                <button id="login-btn" class="login-btn">Login</button>
+                <button id="signup-btn" class="signup-btn">Sign Up</button>
+            </div>
+        </nav>
+    </header>
+
+    <div id="dashboard-container" style="display: none;">
+        <!-- Dashboard content will be dynamically inserted here -->
+    </div>
+
+    <main id="main-content">
+        <div id="property-feed" class="property-feed">
+            <!-- Property cards will be dynamically inserted here -->
+        </div>
+
+        <div class="swipe-controls">
+            <button id="dislike-btn" class="swipe-btn dislike"><i class="fas fa-times"></i></button>
+            <button id="like-btn" class="swipe-btn like"><i class="fas fa-heart"></i></button>
+            <button id="save-btn" class="swipe-btn save"><i class="fas fa-bookmark"></i></button>
+        </div>
+    </main>
+
+    <!-- Login Modal -->
+    <div class="modal" id="login-modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Login</h2>
+            <div class="user-type-toggle">
+                <button class="user-type active" data-type="tenant">Tenant</button>
+                <button class="user-type" data-type="landlord">Landlord</button>
+                <button class="user-type" data-type="admin">Admin</button>
+            </div>
+            <form id="login-form">
+                <input type="email" placeholder="Email" required id="login-email">
+                <input type="password" placeholder="Password" required id="login-password">
+                <div class="admin-code-container" style="display: none;">
+                    <input type="text" placeholder="Admin Security Code" id="admin-code">
+                </div>
+                <div class="form-error" id="login-error"></div>
+                <button type="submit">Login</button>
+            </form>
+            <p>Don't have an account? <a href="#" id="show-signup">Sign up</a></p>
+        </div>
+    </div>
+
+    <!-- Signup Modal -->
+    <div class="modal" id="signup-modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Sign Up</h2>
+            <div class="user-type-toggle">
+                <button class="user-type active" data-type="tenant">Tenant</button>
+                <button class="user-type" data-type="landlord">Landlord</button>
+                <button class="user-type" data-type="admin">Admin</button>
+            </div>
+            <form id="signup-form">
+                <input type="text" placeholder="Full Name" required id="signup-name">
+                <input type="email" placeholder="Email" required id="signup-email">
+                <input type="password" placeholder="Password" required id="signup-password">
+                <input type="password" placeholder="Confirm Password" required id="signup-confirm-password">
+                <div class="form-error" id="signup-error"></div>
+                <button type="submit">Sign Up</button>
+            </form>
+            <p>Already have an account? <a href="#" id="show-login">Login</a></p>
+        </div>
+    </div>
+
+    <!-- Property Details Modal -->
+    <div class="modal" id="property-details-modal">
+        <div class="modal-content property-details">
+            <span class="close-modal">&times;</span>
+            <div id="property-details-content">
+                <!-- Property details will be dynamically inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Assistant -->
+    <div class="ai-assistant-button" id="ai-assistant-button">
+        <i class="fas fa-robot"></i>
+    </div>
+
+    <div class="ai-assistant-container" id="ai-assistant-container">
+        <div class="ai-assistant-header">
+            <span>Property Assistant</span>
+            <span class="ai-assistant-close" id="ai-assistant-close">&times;</span>
+        </div>
+        <div class="ai-assistant-messages" id="ai-assistant-messages">
+            <div class="ai-message">
+                Hello! I'm your property assistant. How can I help you find your perfect home today?
+            </div>
+        </div>
+        <div class="ai-assistant-input">
+            <input type="text" id="ai-assistant-input" placeholder="Ask about properties...">
+            <button id="ai-assistant-send">Send</button>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="auth.js"></script>
+    <script src="app.js"></script>
+    <script src="dashboard.js"></script>
+    <script src="ai-assistant.js"></script>
+    <script src="multi-image-upload.js"></script>
+    <script src="maps-integration.js"></script>
+    <script src="data-service.js"></script>
+    <script src="services/cloud-repository.js"></script>
+    <script src="property-form.js"></script>
+    <script src="property-form-enhancements.js"></script>
+</body>
+</html>
