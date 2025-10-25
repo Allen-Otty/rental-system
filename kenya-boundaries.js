@@ -2,7 +2,9 @@
 // Uses geoBoundaries ADM1 public dataset (counties)
 
 (function(){
-  const GEOJSON_URL = 'https://raw.githubusercontent.com/wmgeolab/geoBoundaries/main/releaseData/gbOpen/KEN/ADM1/geoBoundaries-KEN-ADM1.geojson';
+  // Primary GeoJSON URL with fallback
+  const PRIMARY_GEOJSON_URL = 'https://raw.githubusercontent.com/wmgeolab/geoBoundaries/main/releaseData/gbOpen/KEN/ADM1/geoBoundaries-KEN-ADM1.geojson';
+  const FALLBACK_GEOJSON_URL = 'https://raw.githubusercontent.com/mikelmaron/kenya-election-data/master/data/counties.geojson';
 
   function getCountyName(feature){
     // geoBoundaries often uses shapeName; fallback keys included
@@ -37,7 +39,20 @@
     if (!map || !google || !google.maps) return;
     const data = map.data;
     data.setStyle(styleFeature);
-    data.loadGeoJson(GEOJSON_URL);
+    
+    // Try primary URL first, fallback on error
+    const loadWithFallback = (url, isFallback = false) => {
+      data.loadGeoJson(url, null, (error) => {
+        if (error && !isFallback) {
+          console.warn('Primary Kenya boundaries failed, trying fallback:', error);
+          loadWithFallback(FALLBACK_GEOJSON_URL, true);
+        } else if (error && isFallback) {
+          console.error('Both Kenya boundary sources failed:', error);
+        }
+      });
+    };
+    
+    loadWithFallback(PRIMARY_GEOJSON_URL);
 
     // highlight on hover
     data.addListener('mouseover', (e) => {

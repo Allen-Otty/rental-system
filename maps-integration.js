@@ -288,26 +288,55 @@ class MapsIntegration {
 
     loadKenyaBoundaries() {
         try {
-            const apiUrl = (window.CONFIG && window.CONFIG.GEOBOUNDARIES_ADM1_URL) || 'https://www.geoboundaries.org/api/current/gbOpen/KEN/ADM1';
-            fetch(apiUrl)
-                .then(r => r.json())
-                .then(data => {
-                    const record = Array.isArray(data) ? data[0] : null;
-                    const gjUrl = record?.gjDownloadURL || record?.simplifiedGeometryGeoJSON || record?.shapeFile?.gjDownloadURL;
-                    if (!gjUrl) return;
-                    this.map.data.loadGeoJson(gjUrl);
-                    this.map.data.setStyle({ fillColor: '#2e7d32', fillOpacity: 0.08, strokeColor: '#1b5e20', strokeWeight: 1 });
-                    this.map.data.addListener('click', (e) => {
-                        const name = e.feature.getProperty('shapeName') || e.feature.getProperty('NAME_1') || 'County';
-                        if (typeof showNotification === 'function') {
-                            showNotification(`Boundary: ${name}`, 'info');
+            // Try using ApiService first if available
+            if (window.ApiService && typeof window.ApiService.fetchKenyaADM1 === 'function') {
+                window.ApiService.fetchKenyaADM1()
+                    .then(data => {
+                        // Handle both API response format and direct GeoJSON
+                        if (data.type === 'FeatureCollection') {
+                            // Direct GeoJSON format
+                            this.map.data.addGeoJson(data);
+                        } else {
+                            // API response format
+                            const record = Array.isArray(data) ? data[0] : data;
+                            const gjUrl = record?.gjDownloadURL || record?.simplifiedGeometryGeoJSON || record?.shapeFile?.gjDownloadURL;
+                            if (gjUrl) {
+                                this.map.data.loadGeoJson(gjUrl);
+                            }
                         }
+                        this.map.data.setStyle({ fillColor: '#2e7d32', fillOpacity: 0.08, strokeColor: '#1b5e20', strokeWeight: 1 });
+                        this.map.data.addListener('click', (e) => {
+                            const name = e.feature.getProperty('shapeName') || e.feature.getProperty('NAME_1') || e.feature.getProperty('NAME') || 'County';
+                            if (typeof showNotification === 'function') {
+                                showNotification(`Boundary: ${name}`, 'info');
+                            }
+                        });
+                    })
+                    .catch(error => {
+                        console.warn('Failed to load Kenya boundaries:', error.message);
+                        // Try fallback direct GeoJSON load
+                        this.loadFallbackBoundaries();
                     });
-                })
-                .catch(() => {/* ignore errors for now */});
+            } else {
+                // Fallback to direct API call
+                this.loadFallbackBoundaries();
+            }
         } catch (e) {
-            // ignore
+            console.warn('Error initializing Kenya boundaries:', e.message);
         }
+    }
+
+    loadFallbackBoundaries() {
+        const fallbackUrl = (window.CONFIG && window.CONFIG.DATASETS && window.CONFIG.DATASETS.KENYA_COUNTIES_GEOJSON) || 
+                           'https://raw.githubusercontent.com/mikelmaron/kenya-election-data/master/data/counties.geojson';
+        this.map.data.loadGeoJson(fallbackUrl);
+        this.map.data.setStyle({ fillColor: '#2e7d32', fillOpacity: 0.08, strokeColor: '#1b5e20', strokeWeight: 1 });
+        this.map.data.addListener('click', (e) => {
+            const name = e.feature.getProperty('shapeName') || e.feature.getProperty('NAME_1') || e.feature.getProperty('NAME') || 'County';
+            if (typeof showNotification === 'function') {
+                showNotification(`Boundary: ${name}`, 'info');
+            }
+        });
     }
 }
 

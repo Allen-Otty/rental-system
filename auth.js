@@ -71,8 +71,6 @@ function validateSignupForm(name, email, password, confirmPassword, userType) {
     // Password validation
     if (!password) {
         errors.push("Password is required");
-    } else if (!validatePasswordStrength(password)) {
-        errors.push("Password must be at least 8 characters with uppercase, lowercase, number, and special character");
     }
     
     // Confirm password validation
@@ -87,3 +85,82 @@ function validateSignupForm(name, email, password, confirmPassword, userType) {
         errors: errors
     };
 }
+
+// Simple local Auth implementation
+(function(){
+  const USERS_KEY = 'rs_users';
+  const CURRENT_USER_KEY = 'rs_current_user';
+  const ADMIN_CODE_KEY = 'rs_admin_code';
+  const DEFAULT_ADMIN_CODE = 'ADMIN1234';
+
+  function loadUsers(){
+    try { return JSON.parse(localStorage.getItem(USERS_KEY)) || []; }
+    catch { return []; }
+  }
+  function saveUsers(users){ localStorage.setItem(USERS_KEY, JSON.stringify(users)); }
+  function setCurrentUser(user){ localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user)); }
+  function getCurrentUser(){ try { return JSON.parse(localStorage.getItem(CURRENT_USER_KEY)) || null; } catch { return null; } }
+
+  // Password strength validation (global helper used by forms)
+  function validatePasswordStrength(password) {
+    if (window.Auth && typeof window.Auth.validatePasswordStrength === 'function') {
+      return window.Auth.validatePasswordStrength(password);
+    }
+    const hasUpper = /[A-Z]/.test(password);
+    const hasLower = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecial = /[^A-Za-z0-9]/.test(password);
+    return password && password.length >= 8 && hasUpper && hasLower && hasNumber && hasSpecial;
+  }
+
+  function validateAdminCode(code){
+    const saved = localStorage.getItem(ADMIN_CODE_KEY) || DEFAULT_ADMIN_CODE;
+    return String(code || '').trim() === String(saved).trim();
+  }
+
+  window.Auth = {
+    async register(name, email, password, confirmPassword, userType){
+      const users = loadUsers();
+      if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+        return Promise.reject('An account with this email already exists');
+      }
+      if (!validatePasswordStrength(password)) {
+        return Promise.reject('Password does not meet security requirements');
+      }
+      if (password !== confirmPassword) {
+        return Promise.reject('Passwords do not match');
+      }
+      const user = {
+        id: Date.now().toString(),
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+        role: userType || 'tenant',
+        created_at: new Date().toISOString()
+      };
+      users.push(user);
+      saveUsers(users);
+      setCurrentUser({ id: user.id, name: user.name, email: user.email, role: user.role });
+      return Promise.resolve({ id: user.id, name: user.name, email: user.email, role: user.role });
+    },
+
+    async login(email, password, adminCode){
+      const users = loadUsers();
+      const user = users.find(u => u.email.toLowerCase() === String(email).toLowerCase());
+      if (!user) return Promise.reject('No account found with this email');
+      if (user.password !== password) return Promise.reject('Incorrect password');
+      if (user.role === 'admin' && !validateAdminCode(adminCode)) {
+        return Promise.reject('Admin security code is invalid');
+      }
+      setCurrentUser({ id: user.id, name: user.name, email: user.email, role: user.role });
+      return Promise.resolve({ id: user.id, name: user.name, email: user.email, role: user.role });
+    },
+
+    logout(){ localStorage.removeItem(CURRENT_USER_KEY); },
+    isLoggedIn(){ return !!getCurrentUser(); },
+    getCurrentUser,
+    validatePasswordStrength,
+    validateAdminCode,
+    setAdminCode(code){ if (code && String(code).trim().length >= 4) localStorage.setItem(ADMIN_CODE_KEY, String(code).trim()); }
+  };
+})();
