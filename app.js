@@ -104,3 +104,87 @@ document.getElementById('signup-form').addEventListener('submit', function(e) {
             submitButton.disabled = false;
         });
 });
+
+// Modal wiring and auth buttons
+document.addEventListener('DOMContentLoaded', () => {
+  const loginBtn = document.getElementById('login-btn');
+  const signupBtn = document.getElementById('signup-btn');
+  const loginModal = document.getElementById('login-modal');
+  const signupModal = document.getElementById('signup-modal');
+
+  function showModal(modal){ modal.style.display = 'flex'; }
+  function hideModal(modal){ modal.style.display = 'none'; }
+
+  // Open modals
+  if (loginBtn) loginBtn.addEventListener('click', () => showModal(loginModal));
+  if (signupBtn) signupBtn.addEventListener('click', () => showModal(signupModal));
+
+  // Close modals via X
+  document.querySelectorAll('.modal .close-modal').forEach(el => {
+    el.addEventListener('click', (e) => {
+      const modal = e.target.closest('.modal');
+      if (modal) hideModal(modal);
+    });
+  });
+
+  // Switch between login and signup
+  const showSignupLink = document.getElementById('show-signup');
+  const showLoginLink = document.getElementById('show-login');
+  if (showSignupLink) showSignupLink.addEventListener('click', (e) => { e.preventDefault(); hideModal(loginModal); showModal(signupModal); });
+  if (showLoginLink) showLoginLink.addEventListener('click', (e) => { e.preventDefault(); hideModal(signupModal); showModal(loginModal); });
+
+  // User type toggle in login: show admin code when admin selected
+  const loginUserTypeButtons = loginModal?.querySelectorAll('.user-type-toggle .user-type');
+  const adminCodeContainer = loginModal?.querySelector('.admin-code-container');
+  loginUserTypeButtons?.forEach(btn => {
+    btn.addEventListener('click', () => {
+      loginUserTypeButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const type = btn.dataset.type;
+      if (adminCodeContainer) adminCodeContainer.style.display = (type === 'admin') ? 'block' : 'none';
+    });
+  });
+
+  updateAuthButtons();
+});
+
+function updateAuthButtons(){
+  const authButtons = document.querySelector('.auth-buttons');
+  if (!authButtons) return;
+  let logoutBtn = document.getElementById('logout-btn');
+  const loginBtn = document.getElementById('login-btn');
+  const signupBtn = document.getElementById('signup-btn');
+
+  if (Auth.isLoggedIn()) {
+    // Hide login/signup, show logout
+    if (loginBtn) loginBtn.style.display = 'none';
+    if (signupBtn) signupBtn.style.display = 'none';
+    if (!logoutBtn) {
+      logoutBtn = document.createElement('button');
+      logoutBtn.id = 'logout-btn';
+      logoutBtn.className = 'logout-btn';
+      logoutBtn.textContent = 'Logout';
+      authButtons.appendChild(logoutBtn);
+      logoutBtn.addEventListener('click', () => {
+        Auth.logout();
+        showNotification('You have been logged out', 'info');
+        updateAuthButtons();
+        // Optionally hide dashboard
+        const dash = document.getElementById('dashboard-container');
+        if (dash) dash.style.display = 'none';
+      });
+    }
+    // Show dashboard for logged-in user
+    const user = Auth.getCurrentUser();
+    if (user) {
+      try { createDashboard(user); } catch (e) { /* dashboard may not be ready yet */ }
+      const dash = document.getElementById('dashboard-container');
+      if (dash) dash.style.display = 'block';
+    }
+  } else {
+    // Show login/signup, hide logout
+    if (loginBtn) loginBtn.style.display = '';
+    if (signupBtn) signupBtn.style.display = '';
+    if (logoutBtn) { logoutBtn.remove(); }
+  }
+}
