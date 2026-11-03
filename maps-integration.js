@@ -1,67 +1,47 @@
-// Google Maps integration for property location pinning
+// Map integration for property location pinning, built on Leaflet + OpenStreetMap.
+// No API key needed. Search and reverse geocoding use OpenStreetMap's Nominatim service
+// (light use only; move to a hosted geocoder if traffic grows).
 class MapsIntegration {
     constructor() {
         this.map = null;
         this.markers = [];
+        this.boundaryLayer = null;
         this.selectedLocation = null;
         this.selectedAddress = null; // { country, county, address }
+        this.currentLocation = null; // { county, address, countryCode } (read by property-form-enhancements)
         this.onLocationUpdate = null; // callback(info)
         this.targetContainerId = null;
-        this.apiKey = (window.CONFIG && window.CONFIG.GOOGLE_MAPS_API_KEY) || 'YOUR_GOOGLE_MAPS_API_KEY';
-        this.loadGoogleMapsScript();
+        this._searchTimer = null;
     }
 
-    loadGoogleMapsScript() {
-        // Check if script is already loaded
-        if (window.google && window.google.maps) {
-            this.initMap();
+    // Only draws a map when asked (the property form passes a container id).
+    // It no longer injects a map into the home page on load.
+    initMap(targetContainerId = null) {
+        if (typeof L === 'undefined') {
+            console.warn('Leaflet failed to load; map unavailable.');
             return;
         }
-
-        // Create script element
-        const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${this.apiKey}&libraries=places`;
-        script.async = true;
-        script.defer = true;
-        script.onload = () => this.initMap();
-        document.head.appendChild(script);
-    }
-
-    initMap(targetContainerId = null) {
-        // Create map container if it doesn't exist
         this.targetContainerId = targetContainerId;
-        if (!document.getElementById('property-map-container')) {
-            this.createMapInterface(targetContainerId);
-        }
+        if (this.map) { this.map.remove(); this.map = null; this.markers = []; }
+        if (!targetContainerId && !document.querySelector('.landlord-dashboard, .property-details-content')) return;
+        this.createMapInterface(targetContainerId);
 
-        // Initialize map
         const mapContainer = document.getElementById('property-map');
         if (!mapContainer) return;
 
-        // Default center (set to Nairobi, Kenya)
-        const defaultCenter = { lat:  -1.286389, lng: 36.817223 };
+        const nairobi = [-1.286389, 36.817223];
+        this.map = L.map(mapContainer).setView(nairobi, 11);
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(this.map);
 
-        this.map = new google.maps.Map(mapContainer, {
-            center: defaultCenter,
-            zoom: 13,
-            mapTypeControl: true,
-            streetViewControl: true,
-            fullscreenControl: true
-        });
-
-        // Add search box
+        this.map.on('click', (e) => this.placeMarker(e.latlng));
         this.addSearchBox();
-
-        // Add click listener for pin dropping
-        this.map.addListener('click', (event) => {
-            this.placeMarker(event.latLng);
-        });
-
-        // If we're viewing a property with location, show it
         this.showPropertyLocation();
-
-        // Load Kenya administrative boundaries overlay (ADM1 - Counties)
         this.loadKenyaBoundaries();
+        // The form modal may still be animating open; fix tile sizing.
+        setTimeout(() => this.map && this.map.invalidateSize(), 200);
     }
 
     createMapInterface(targetContainerId = null) {
@@ -69,181 +49,122 @@ class MapsIntegration {
             <div id="property-map-container" class="map-container">
                 <h3>Property Location</h3>
                 <div class="map-search-container">
-                    <input id="map-search-input" type="text" placeholder="Search for a location">
+                    <input id="map-search-input" type="text" placeholder="Search for a location in Kenya" autocomplete="off">
+                    <ul id="map-search-results" class="map-search-results"></ul>
                 </div>
                 <div id="property-map" class="property-map"></div>
                 <div class="map-controls">
-                    <button id="save-location-button" class="btn">Save Location</button>
-                    <button id="reset-location-button" class="btn btn-secondary">Reset</button>
+                    <button type="button" id="save-location-button" class="btn">Save Location</button>
+                    <button type="button" id="reset-location-button" class="btn btn-secondary">Reset</button>
                 </div>
                 <div id="selected-location-info" class="location-info"></div>
             </div>
         `;
-        
-        if (targetContainerId) {
-            // Prefer rendering inside the provided container
-            const host = document.getElementById(targetContainerId);
-            if (host) {
-                host.innerHTML = mapHTML;
-            } else {
-                // Fallback to body if container not found
-                const fallback = document.createElement('div');
-                fallback.innerHTML = mapHTML;
-                document.body.appendChild(fallback);
-            }
+        const host = targetContainerId && document.getElementById(targetContainerId);
+        if (host) {
+            host.innerHTML = mapHTML;
         } else {
-            // Add to landlord dashboard if it exists (for adding properties)
-            const landlordDashboard = document.querySelector('.landlord-dashboard');
-            if (landlordDashboard) {
-                const mapSection = document.createElement('div');
-                mapSection.className = 'dashboard-section';
-                mapSection.innerHTML = mapHTML;
-                landlordDashboard.appendChild(mapSection);
-            } else {
-                // Add to property details if it exists (for viewing properties)
-                const propertyDetails = document.querySelector('.property-details-content');
-                if (propertyDetails) {
-                    const mapSection = document.createElement('div');
-                    mapSection.innerHTML = mapHTML;
-                    propertyDetails.appendChild(mapSection);
-                } else {
-                    // Fallback - add to property form if it exists
-                    const propertyForm = document.querySelector('.property-form') || document.body;
-                    const mapSection = document.createElement('div');
-                    mapSection.innerHTML = mapHTML;
-                    propertyForm.appendChild(mapSection);
-                }
-            }
+            const parent = document.querySelector('.landlord-dashboard') ||
+                           document.querySelector('.property-details-content');
+            if (!parent) return;
+            const section = document.createElement('div');
+            section.innerHTML = mapHTML;
+            parent.appendChild(section);
         }
-
-        // Add event listeners
         document.getElementById('save-location-button').addEventListener('click', () => this.saveLocation());
         document.getElementById('reset-location-button').addEventListener('click', () => this.resetMarkers());
     }
 
     addSearchBox() {
         const input = document.getElementById('map-search-input');
-        if (!input) return;
-
-        const searchBox = new google.maps.places.SearchBox(input);
-        
-        // Bias the SearchBox results towards current map's viewport
-        this.map.addListener('bounds_changed', () => {
-            searchBox.setBounds(this.map.getBounds());
-        });
-
-        // Listen for the event fired when the user selects a prediction and retrieve
-        // more details for that place.
-        searchBox.addListener('places_changed', () => {
-            const places = searchBox.getPlaces();
-
-            if (places.length === 0) return;
-
-            // For each place, get the icon, name and location.
-            const bounds = new google.maps.LatLngBounds();
-            
-            places.forEach(place => {
-                if (!place.geometry || !place.geometry.location) return;
-
-                // Place a marker for the selected location
-                this.placeMarker(place.geometry.location);
-
-                if (place.geometry.viewport) {
-                    // Only geocodes have viewport.
-                    bounds.union(place.geometry.viewport);
-                } else {
-                    bounds.extend(place.geometry.location);
+        const list = document.getElementById('map-search-results');
+        if (!input || !list) return;
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') e.preventDefault(); });
+        input.addEventListener('input', () => {
+            clearTimeout(this._searchTimer);
+            const q = input.value.trim();
+            if (q.length < 3) { list.innerHTML = ''; return; }
+            this._searchTimer = setTimeout(async () => {
+                try {
+                    const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&countrycodes=ke&q=' + encodeURIComponent(q);
+                    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                    const items = await res.json();
+                    list.innerHTML = '';
+                    items.forEach(item => {
+                        const li = document.createElement('li');
+                        li.textContent = item.display_name;
+                        li.addEventListener('click', () => {
+                            list.innerHTML = '';
+                            input.value = item.display_name;
+                            const ll = L.latLng(parseFloat(item.lat), parseFloat(item.lon));
+                            this.map.setView(ll, 16);
+                            this.placeMarker(ll);
+                        });
+                        list.appendChild(li);
+                    });
+                } catch (err) {
+                    console.warn('Location search failed:', err.message);
                 }
-            });
-            
-            this.map.fitBounds(bounds);
+            }, 400);
         });
     }
 
-    placeMarker(location) {
-        // Clear existing markers
+    placeMarker(latlng) {
         this.resetMarkers();
-        
-        // Create new marker
-        const marker = new google.maps.Marker({
-            position: location,
-            map: this.map,
-            draggable: true,
-            animation: google.maps.Animation.DROP
-        });
-        
+        const marker = L.marker(latlng, { draggable: true }).addTo(this.map);
         this.markers.push(marker);
-        this.selectedLocation = {
-            lat: location.lat(),
-            lng: location.lng()
-        };
-        
-        // Update location info
+        this.selectedLocation = { lat: latlng.lat, lng: latlng.lng };
         this.updateLocationInfo();
-        
-        // Add drag end listener to update location
-        marker.addListener('dragend', () => {
-            this.selectedLocation = {
-                lat: marker.getPosition().lat(),
-                lng: marker.getPosition().lng()
-            };
+        marker.on('dragend', () => {
+            const p = marker.getLatLng();
+            this.selectedLocation = { lat: p.lat, lng: p.lng };
             this.updateLocationInfo();
         });
     }
 
-    updateLocationInfo() {
+    async updateLocationInfo() {
         const infoContainer = document.getElementById('selected-location-info');
         if (!infoContainer || !this.selectedLocation) return;
-        
-        // Reverse geocode to get address
-        const geocoder = new google.maps.Geocoder();
-        geocoder.geocode({ location: this.selectedLocation }, (results, status) => {
-            if (status === 'OK' && results[0]) {
-                const address = results[0];
-                // Extract country and county
-                let country = null;
-                let county = null;
-                const comps = address.address_components || [];
-                comps.forEach(c => {
-                    if (c.types.includes('country')) country = c.long_name;
-                    if (c.types.includes('administrative_area_level_1')) county = c.long_name;
-                });
-                this.selectedAddress = { country, county, address: address.formatted_address };
-                infoContainer.innerHTML = `
-                    <p><strong>Selected Location:</strong> ${address.formatted_address}</p>
-                    <p><strong>Coordinates:</strong> ${this.selectedLocation.lat.toFixed(6)}, ${this.selectedLocation.lng.toFixed(6)}</p>
-                    ${country ? `<p><strong>Country:</strong> ${country}</p>` : ''}
-                    ${county ? `<p><strong>County:</strong> ${county}</p>` : ''}
-                `;
-                // Notify listeners
-                if (typeof this.onLocationUpdate === 'function') {
-                    this.onLocationUpdate({
-                        address: address.formatted_address,
-                        coords: this.selectedLocation,
-                        country,
-                        county
-                    });
-                }
-            } else {
-                infoContainer.innerHTML = `
-                    <p><strong>Selected Location:</strong> Custom Pin</p>
-                    <p><strong>Coordinates:</strong> ${this.selectedLocation.lat.toFixed(6)}, ${this.selectedLocation.lng.toFixed(6)}</p>
-                `;
+        const { lat, lng } = this.selectedLocation;
+        const coords = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        try {
+            const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=17&lat=${lat}&lon=${lng}`;
+            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            const data = await res.json();
+            if (!data || data.error) throw new Error('no address');
+            const a = data.address || {};
+            const country = a.country || null;
+            const county = (a.county || a.state || '').replace(/\s+County$/i, '') || null;
+            const address = data.display_name;
+            this.selectedAddress = { country, county, address };
+            this.currentLocation = { county, address, countryCode: a.country_code || '' };
+            const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+            infoContainer.innerHTML = `
+                <p><strong>Selected Location:</strong> ${esc(address)}</p>
+                <p><strong>Coordinates:</strong> ${coords}</p>
+                ${country ? `<p><strong>Country:</strong> ${esc(country)}</p>` : ''}
+                ${county ? `<p><strong>County:</strong> ${esc(county)}</p>` : ''}`;
+            if (typeof this.onLocationUpdate === 'function') {
+                this.onLocationUpdate({ address, coords: this.selectedLocation, country, county });
             }
-        });
+            window.dispatchEvent(new CustomEvent('app:locationUpdated', {
+                detail: { county, address, countryCode: (a.country_code || '').toLowerCase() }
+            }));
+            const countyInput = document.getElementById('property-county');
+            if (countyInput && county && !countyInput.value) countyInput.value = county;
+        } catch (err) {
+            infoContainer.innerHTML = `
+                <p><strong>Selected Location:</strong> Custom Pin</p>
+                <p><strong>Coordinates:</strong> ${coords}</p>`;
+        }
     }
 
     resetMarkers() {
-        // Remove all markers from the map
-        this.markers.forEach(marker => marker.setMap(null));
+        this.markers.forEach(m => m.remove());
         this.markers = [];
         this.selectedLocation = null;
-        
-        // Clear location info
         const infoContainer = document.getElementById('selected-location-info');
-        if (infoContainer) {
-            infoContainer.innerHTML = '';
-        }
+        if (infoContainer) infoContainer.innerHTML = '';
     }
 
     saveLocation() {
@@ -251,30 +172,25 @@ class MapsIntegration {
             alert('Please select a location on the map first.');
             return;
         }
-        // Enforce Kenya-only locations
         if (this.selectedAddress && this.selectedAddress.country && this.selectedAddress.country.toLowerCase() !== 'kenya') {
             alert('Selected location is outside Kenya. Please pick a location within Kenyan boundaries.');
             return;
         }
-        
-        // Save location to property data
         if (window.currentProperty) {
             window.currentProperty.location = this.selectedLocation;
             alert('Location saved successfully!');
         } else {
-            // Store in localStorage for later use
             localStorage.setItem('pendingPropertyLocation', JSON.stringify(this.selectedLocation));
             alert('Location saved. It will be applied when you create a property.');
         }
     }
 
     showPropertyLocation() {
-        // Check if we're viewing a property with location data
         if (window.currentProperty && window.currentProperty.location) {
-            const location = window.currentProperty.location;
-            const latLng = new google.maps.LatLng(location.lat, location.lng);
-            this.placeMarker(latLng);
-            this.map.setCenter(latLng);
+            const { lat, lng } = window.currentProperty.location;
+            const ll = L.latLng(lat, lng);
+            this.placeMarker(ll);
+            this.map.setView(ll, 15);
         }
     }
 
@@ -286,62 +202,39 @@ class MapsIntegration {
         this.onLocationUpdate = cb;
     }
 
-    loadKenyaBoundaries() {
-        try {
-            // Try using ApiService first if available
-            if (window.ApiService && typeof window.ApiService.fetchKenyaADM1 === 'function') {
-                window.ApiService.fetchKenyaADM1()
-                    .then(data => {
-                        // Handle both API response format and direct GeoJSON
-                        if (data.type === 'FeatureCollection') {
-                            // Direct GeoJSON format
-                            this.map.data.addGeoJson(data);
-                        } else {
-                            // API response format
-                            const record = Array.isArray(data) ? data[0] : data;
-                            const gjUrl = record?.gjDownloadURL || record?.simplifiedGeometryGeoJSON || record?.shapeFile?.gjDownloadURL;
-                            if (gjUrl) {
-                                this.map.data.loadGeoJson(gjUrl);
-                            }
-                        }
-                        this.map.data.setStyle({ fillColor: '#2e7d32', fillOpacity: 0.08, strokeColor: '#1b5e20', strokeWeight: 1 });
-                        this.map.data.addListener('click', (e) => {
-                            const name = e.feature.getProperty('shapeName') || e.feature.getProperty('NAME_1') || e.feature.getProperty('NAME') || 'County';
-                            if (typeof showNotification === 'function') {
-                                showNotification(`Boundary: ${name}`, 'info');
-                            }
-                        });
-                    })
-                    .catch(error => {
-                        console.warn('Failed to load Kenya boundaries:', error.message);
-                        // Try fallback direct GeoJSON load
-                        this.loadFallbackBoundaries();
-                    });
-            } else {
-                // Fallback to direct API call
-                this.loadFallbackBoundaries();
+    // County outlines (best effort; the map works without them).
+    async loadKenyaBoundaries() {
+        const urls = [
+            'https://raw.githubusercontent.com/wmgeolab/geoBoundaries/main/releaseData/gbOpen/KEN/ADM1/geoBoundaries-KEN-ADM1_simplified.geojson',
+            (window.CONFIG && window.CONFIG.DATASETS && window.CONFIG.DATASETS.KENYA_COUNTIES_GEOJSON) ||
+                'https://raw.githubusercontent.com/mikelmaron/kenya-election-data/master/data/counties.geojson'
+        ];
+        for (const url of urls) {
+            try {
+                const res = await fetch(url);
+                if (!res.ok) continue;
+                const geo = await res.json();
+                if (!this.map) return;
+                if (this.boundaryLayer) this.boundaryLayer.remove();
+                this.boundaryLayer = L.geoJSON(geo, {
+                    style: { color: '#1b5e20', weight: 1, fillColor: '#2e7d32', fillOpacity: 0.06 },
+                    onEachFeature: (f, layer) => {
+                        const p = f.properties || {};
+                        const name = p.shapeName || p.NAME_1 || p.COUNTY || p.NAME || 'County';
+                        layer.bindTooltip(String(name), { sticky: true });
+                    }
+                }).addTo(this.map);
+                // Clicks on a county should still drop a pin.
+                this.boundaryLayer.on('click', (e) => this.placeMarker(e.latlng));
+                return;
+            } catch (err) {
+                console.warn('Boundary load failed:', err.message);
             }
-        } catch (e) {
-            console.warn('Error initializing Kenya boundaries:', e.message);
         }
-    }
-
-    loadFallbackBoundaries() {
-        const fallbackUrl = (window.CONFIG && window.CONFIG.DATASETS && window.CONFIG.DATASETS.KENYA_COUNTIES_GEOJSON) || 
-                           'https://raw.githubusercontent.com/mikelmaron/kenya-election-data/master/data/counties.geojson';
-        this.map.data.loadGeoJson(fallbackUrl);
-        this.map.data.setStyle({ fillColor: '#2e7d32', fillOpacity: 0.08, strokeColor: '#1b5e20', strokeWeight: 1 });
-        this.map.data.addListener('click', (e) => {
-            const name = e.feature.getProperty('shapeName') || e.feature.getProperty('NAME_1') || e.feature.getProperty('NAME') || 'County';
-            if (typeof showNotification === 'function') {
-                showNotification(`Boundary: ${name}`, 'info');
-            }
-        });
     }
 }
 
-// Initialize maps integration when the DOM is loaded
+// One shared instance; it draws nothing until the property form asks for a map.
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize for both landlords (to add locations) and all users (to view locations)
     window.mapsIntegration = new MapsIntegration();
 });
