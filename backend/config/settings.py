@@ -43,6 +43,8 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.geo",
     "apps.properties",
+    "apps.land",
+    "apps.tenant_requests",
     "apps.audit",
 ]
 
@@ -107,7 +109,8 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 20,
     "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
     "DEFAULT_THROTTLE_CLASSES": ["rest_framework.throttling.ScopedRateThrottle"],
-    "DEFAULT_THROTTLE_RATES": {"otp": "30/hour", "login": "30/hour"},
+    "DEFAULT_THROTTLE_RATES": {"otp": "30/hour", "login": "30/hour", "signup": "10/hour",
+                              "email_resend": "5/hour", "pay": "10/hour"},
 }
 
 from datetime import timedelta  # noqa: E402
@@ -131,12 +134,43 @@ AT_USERNAME = os.environ.get("AT_USERNAME", "")
 AT_API_KEY = os.environ.get("AT_API_KEY", "")
 AT_SENDER_ID = os.environ.get("AT_SENDER_ID", "")
 
+# --- Email (signup confirmation) -------------------------------------------
+# Dev default prints emails to the console. In production set EMAIL_BACKEND to
+# django.core.mail.backends.smtp.EmailBackend plus the EMAIL_HOST_* values for your provider.
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() == "true"
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Mjakez <no-reply@localhost>")
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+EMAIL_CONFIRM_MAX_AGE_HOURS = int(os.environ.get("EMAIL_CONFIRM_MAX_AGE_HOURS", "48"))
+# Phone-OTP can still sign existing users in, but new accounts need the email link.
+OTP_SIGNUP_ENABLED = os.environ.get("OTP_SIGNUP_ENABLED", "false").lower() == "true"
+
+# --- Property requests + M-Pesa ---------------------------------------------
+REQUEST_FEE_KES = int(os.environ.get("REQUEST_FEE_KES", "200"))  # server-side; clients can't set it
+REQUEST_ACTIVE_DAYS = int(os.environ.get("REQUEST_ACTIVE_DAYS", "30"))
+MPESA_BACKEND = os.environ.get("MPESA_BACKEND", "mock")  # "mock" (dev/tests) or "daraja"
+MPESA_ENV = os.environ.get("MPESA_ENV", "sandbox")        # "sandbox" or "production"
+MPESA_CONSUMER_KEY = os.environ.get("MPESA_CONSUMER_KEY", "")
+MPESA_CONSUMER_SECRET = os.environ.get("MPESA_CONSUMER_SECRET", "")
+MPESA_SHORTCODE = os.environ.get("MPESA_SHORTCODE", "")   # Paybill number or Till (store) number
+MPESA_PARTY_B = os.environ.get("MPESA_PARTY_B", "")       # Till number for BuyGoods; defaults to shortcode
+MPESA_PASSKEY = os.environ.get("MPESA_PASSKEY", "")
+MPESA_TRANSACTION_TYPE = os.environ.get("MPESA_TRANSACTION_TYPE", "CustomerPayBillOnline")  # or CustomerBuyGoodsOnline
+MPESA_CALLBACK_BASE_URL = os.environ.get("MPESA_CALLBACK_BASE_URL", "").rstrip("/")  # public https URL of this API
+MPESA_CALLBACK_SECRET = os.environ.get("MPESA_CALLBACK_SECRET", "")  # random string, part of the callback URL
+
 # --- Media ----------------------------------------------------------------
 CLOUDINARY_CLOUD_NAME = os.environ.get("CLOUDINARY_CLOUD_NAME", "")
 CLOUDINARY_API_KEY = os.environ.get("CLOUDINARY_API_KEY", "")
 CLOUDINARY_API_SECRET = os.environ.get("CLOUDINARY_API_SECRET", "")
 PRIVATE_MEDIA_ROOT = os.environ.get("PRIVATE_MEDIA_ROOT", str(BASE_DIR / "private_media"))
 MAX_VERIFICATION_FILE_MB = 5
+
+LAND_MAX_ACTIVE_PER_SELLER = int(os.environ.get("LAND_MAX_ACTIVE_PER_SELLER", "20"))
 
 # --- Business rules -------------------------------------------------------
 DEFAULT_COMMISSION_PERCENT = os.environ.get("DEFAULT_COMMISSION_PERCENT", "0")

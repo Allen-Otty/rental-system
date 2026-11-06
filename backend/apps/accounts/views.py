@@ -1,5 +1,8 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.db import transaction
+from django.core import signing
+from django.core.cache import cache
+from django.db import IntegrityError, transaction
 from django.http import FileResponse, Http404
 from django.utils import timezone
 from rest_framework import generics, permissions, status
@@ -9,11 +12,13 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.audit.utils import log_action
 
+from . import emailverify
 from . import otp as otp_service
 from .models import LandlordVerification, Role, VerificationDocument, VerificationStatus
 from .permissions import IsLandlord, IsPlatformStaff
-from .serializers import (DocumentUploadSerializer, LandlordVerificationSerializer, LoginSerializer,
-                          MeSerializer, OTPRequestSerializer, OTPVerifySerializer, SetPasswordSerializer)
+from .serializers import (ConfirmEmailSerializer, DocumentUploadSerializer, LandlordVerificationSerializer,
+                          LoginSerializer, MeSerializer, OTPRequestSerializer, OTPVerifySerializer,
+                          ResendConfirmationSerializer, SetPasswordSerializer, SignupSerializer)
 
 User = get_user_model()
 
@@ -51,6 +56,9 @@ class OTPVerifyView(APIView):
         except otp_service.OTPError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+        if not settings.OTP_SIGNUP_ENABLED and not User.objects.filter(phone=d["phone"]).exists():
+            return Response({"detail": "No account for this number. Sign up with your email first."},
+                            status=status.HTTP_400_BAD_REQUEST)
         user, created = User.objects.get_or_create(
             phone=d["phone"],
             defaults={"role": d.get("role", Role.TENANT), "full_name": d.get("full_name", ""),
@@ -66,6 +74,92 @@ class OTPVerifyView(APIView):
             user.save(update_fields=["password"])
             log_action(user, "user.registered", user, role=user.role)
         return Response({"created": created, "user": MeSerializer(user).data, **tokens_for(user)})
+
+
+class SignupView(APIView):
+    """Email signup. The account stays inactive until the emailed link is confirmed."""
+
+    permission_classes = [permissions.AllowAny]
+    throttle_scope = "signup"
+
+    @transaction.atomic
+    def post(self, request):
+        s = SignupSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        d = s.validated_data
+        pending = User.objects.filter(email__iexact=d["email"], is_active=False, is_email_verified=False).first()
+        taken_email = User.objects.filter(email__iexact=d["email"]).exclude(pk=getattr(pending, "pk", None)).exists()
+        taken_phone = User.objects.filter(phone=d["phone"]).exclude(pk=getattr(pending, "pk", None)).exists()
+        if taken_email or taken_phone:
+            errors = {}
+            if taken_email:
+                errors["email"] = ["An account with this email already exists. Try logging in."]
+            if taken_phone:
+                errors["phone"] = ["This phone number is already used by another account."]
+            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            if pending:
+                # Latest signup wins, and older links die (the token binds to the password hash).
+                user = pending
+                user.phone, user.full_name, user.role = d["phone"], d["full_name"], d["role"]
+                user.set_password(d["password"])
+                user.contact_consent, user.contact_consent_at = True, timezone.now()
+                user.save()
+            else:
+                user = User.objects.create_user(
+                    d["phone"], d["password"], email=d["email"], full_name=d["full_name"], role=d["role"],
+                    is_active=False, contact_consent=True, contact_consent_at=timezone.now())
+                log_action(user, "user.registered", user, role=user.role, via="email")
+        except IntegrityError:
+            return Response({"detail": "Could not create the account. Check your details."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        emailverify.send_confirmation(user)
+        return Response({"detail": "Check your email and click the confirmation link to activate your account."},
+                        status=status.HTTP_201_CREATED)
+
+
+class ConfirmEmailView(APIView):
+    """POST (not GET) so mail scanners that pre-fetch links can't confirm accounts by accident."""
+
+    permission_classes = [permissions.AllowAny]
+    throttle_scope = "login"
+
+    def post(self, request):
+        s = ConfirmEmailSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        try:
+            payload = emailverify.read_token(s.validated_data["token"])
+        except signing.SignatureExpired:
+            return Response({"detail": "This link has expired. Request a new one.", "code": "expired"},
+                            status=status.HTTP_400_BAD_REQUEST)
+        except signing.BadSignature:
+            return Response({"detail": "This link is not valid.", "code": "invalid"}, status=status.HTTP_400_BAD_REQUEST)
+        user = User.objects.filter(pk=payload.get("uid")).first()
+        if (not user or user.email != payload.get("email") or user.password[-12:] != payload.get("pw")):
+            return Response({"detail": "This link is not valid.", "code": "invalid"}, status=status.HTTP_400_BAD_REQUEST)
+        if not user.is_email_verified:
+            user.is_email_verified = True
+            user.is_active = True
+            user.save(update_fields=["is_email_verified", "is_active"])
+            log_action(user, "user.email_confirmed", user)
+        return Response({"detail": "Email confirmed. You can log in now."})
+
+
+class ResendConfirmationView(APIView):
+    """Always answers the same way so it can't be used to discover which emails are registered."""
+
+    permission_classes = [permissions.AllowAny]
+    throttle_scope = "email_resend"
+
+    def post(self, request):
+        s = ResendConfirmationSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        email = s.validated_data["email"].strip().lower()
+        if cache.add(f"resend:{email}", 1, timeout=60):  # one per minute per address
+            user = User.objects.filter(email__iexact=email, is_active=False, is_email_verified=False).first()
+            if user:
+                emailverify.send_confirmation(user)
+        return Response({"detail": "If that email is waiting for confirmation, we sent a new link."})
 
 
 class LoginView(APIView):
@@ -92,6 +186,9 @@ class LoginView(APIView):
         if not user or not user.has_usable_password() or not user.check_password(s.validated_data["password"]):
             return Response({"detail": "Invalid credentials."}, status=status.HTTP_401_UNAUTHORIZED)
         if not user.is_active:
+            if not user.is_email_verified:
+                return Response({"detail": "Please confirm your email first. Check your inbox for the link.",
+                                 "code": "email_not_confirmed"}, status=status.HTTP_403_FORBIDDEN)
             return Response({"detail": "This account is suspended."}, status=status.HTTP_403_FORBIDDEN)
         return Response({"user": MeSerializer(user).data, **tokens_for(user)})
 

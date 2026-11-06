@@ -117,9 +117,12 @@ class UnitSerializer(serializers.ModelSerializer):
         return value
 
     def validate_amenities(self, value):
-        if not isinstance(value, list) or not all(isinstance(a, str) and len(a) <= 40 for a in value) or len(value) > 30:
-            raise serializers.ValidationError("Amenities must be a list of up to 30 short strings.")
-        return value
+        from .amenities import RENTAL_KEYS, clean_keys
+
+        try:
+            return clean_keys(value, RENTAL_KEYS)
+        except ValueError as e:
+            raise serializers.ValidationError(str(e))
 
     def validate(self, attrs):
         request = self.context["request"]

@@ -27,6 +27,39 @@ class OTPVerifySerializer(serializers.Serializer):
     full_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
 
 
+class SignupSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+    phone = PhoneField()
+    full_name = serializers.CharField(max_length=150)
+    role = serializers.ChoiceField(choices=[r.value for r in SELF_SIGNUP_ROLES], default=Role.TENANT)
+    contact_consent = serializers.BooleanField()
+
+    def validate_email(self, value):
+        return value.strip().lower()
+
+    def validate_contact_consent(self, value):
+        if value is not True:
+            raise serializers.ValidationError("You must agree to be contacted to create an account.")
+        return value
+
+    def validate(self, attrs):
+        probe = User(email=attrs["email"], phone=attrs["phone"], full_name=attrs["full_name"])
+        try:
+            password_validation.validate_password(attrs["password"], probe)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError({"password": e.messages})
+        return attrs
+
+
+class ConfirmEmailSerializer(serializers.Serializer):
+    token = serializers.CharField()
+
+
+class ResendConfirmationSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
 class LoginSerializer(serializers.Serializer):
     identifier = serializers.CharField()  # phone or email
     password = serializers.CharField(write_only=True)
@@ -34,7 +67,6 @@ class LoginSerializer(serializers.Serializer):
 
 class SetPasswordSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
-    email = serializers.EmailField(required=False)
 
     def validate_password(self, value):
         try:
@@ -43,11 +75,6 @@ class SetPasswordSerializer(serializers.Serializer):
             raise serializers.ValidationError(e.messages)
         return value
 
-    def validate_email(self, value):
-        qs = User.objects.filter(email__iexact=value).exclude(pk=self.context["request"].user.pk)
-        if qs.exists():
-            raise serializers.ValidationError("This email is already in use.")
-        return value.lower()
 
 
 class MeSerializer(serializers.ModelSerializer):
@@ -56,8 +83,10 @@ class MeSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "phone", "email", "full_name", "role", "language", "is_phone_verified",
-                  "landlord_verified", "verification_status"]
-        read_only_fields = ["id", "phone", "role", "is_phone_verified", "landlord_verified"]
+                  "is_email_verified", "landlord_verified", "verification_status"]
+        # email changes need a confirmation flow, so they are not editable here
+        read_only_fields = ["id", "phone", "email", "role", "is_phone_verified", "is_email_verified",
+                            "landlord_verified"]
 
     def get_verification_status(self, obj):
         if obj.role != Role.LANDLORD:

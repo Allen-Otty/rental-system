@@ -32,7 +32,8 @@ def _code():
     return sms.outbox[-1]["message"].split("code is ")[1][:6]
 
 
-def test_otp_flow_creates_account_and_returns_jwt(client):
+def test_otp_flow_creates_account_and_returns_jwt(client, settings):
+    settings.OTP_SIGNUP_ENABLED = True
     assert client.post("/api/v1/auth/otp/request/", {"phone": "0712345678"}).status_code == 200
     r = client.post("/api/v1/auth/otp/verify/", {"phone": "0712345678", "code": _code(),
                                                   "role": "landlord", "full_name": "Lena"})
@@ -43,7 +44,8 @@ def test_otp_flow_creates_account_and_returns_jwt(client):
     assert me.status_code == 200 and me.data["phone"] == "+254712345678"
 
 
-def test_otp_code_is_single_use_and_wrong_code_rejected(client):
+def test_otp_code_is_single_use_and_wrong_code_rejected(client, settings):
+    settings.OTP_SIGNUP_ENABLED = True
     client.post("/api/v1/auth/otp/request/", {"phone": "0712345678"})
     code = _code()
     bad = "000000" if code != "000000" else "111111"

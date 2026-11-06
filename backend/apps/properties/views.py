@@ -328,3 +328,15 @@ class SavedSearchViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         serializer.save(**self._consent_time(serializer, serializer.instance))
+
+
+class AmenityCatalogView(APIView):
+    """The checkbox options for rental listings/requests and for land features."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        from .amenities import LAND_FEATURES, RENTAL_AMENITIES
+
+        as_list = lambda pairs: [{"key": k, "label": label} for k, label in pairs]
+        return Response({"rental": as_list(RENTAL_AMENITIES), "land": as_list(LAND_FEATURES)})
