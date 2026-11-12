@@ -1,0 +1,39 @@
+# Render Blueprint (suggested hosting). Verify PostGIS is available on your Postgres plan.
+services:
+  - type: web
+    name: rental-api
+    runtime: docker
+    rootDir: backend
+    region: frankfurt
+    healthCheckPath: /health/
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase: { name: rental-db, property: connectionString }
+      - key: ALLOWED_HOSTS
+        value: rental-api.onrender.com
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://rental-system-lime.vercel.app
+      - key: SMS_BACKEND
+        value: africastalking
+      - key: AT_USERNAME
+        sync: false
+      - key: AT_API_KEY
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: PRIVATE_MEDIA_ROOT
+        value: /data/private_media
+    disk:
+      name: private-media
+      mountPath: /data
+      sizeGB: 1
+databases:
+  - name: rental-db
+    region: frankfurt
+    plan: basic-256mb

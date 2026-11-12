@@ -1,0 +1,51 @@
+/* Design tokens. Colours are named by what they MEAN (success, danger, text-muted), never by hue,
+   so a theme can change the colour without touching a component. Every text/background pair is
+   checked against WCAG AA (4.5:1 body, 3:1 large text and UI borders) in src/tokens.test.ts. */
+:root {
+  --sky: #5BB8F5;            /* brand colour: decoration and large shapes only, never small text */
+  --bg: #F3F7FB;
+  --surface: #FFFFFF;
+  --surface-2: #E8EFF6;
+  --text: #0A0C10;
+  --text-muted: #46505C;
+  --border: #C3CFDB;
+  --primary: #0A0C10;        /* main button */
+  --on-primary: #FFFFFF;
+  --accent: #0B5CAD;         /* links and small highlights */
+  --on-accent: #FFFFFF;
+  --focus: #0B5CAD;
+  --success: #12623A;  --success-bg: #DFF3E7;
+  --warning: #7A4A00;  --warning-bg: #FFEFCC;
+  --danger: #A12A16;   --danger-bg: #FCE3DE;
+  --info: #134F9C;     --info-bg: #E1ECFB;
+  --overlay: rgba(10, 12, 16, 0.55);
+  --radius: 16px; --radius-sm: 10px;
+  --shadow: 0 1px 2px rgba(10, 12, 16, 0.06), 0 8px 24px rgba(10, 12, 16, 0.08);
+  --font: "Inter", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --step--1: clamp(0.8125rem, 0.79rem + 0.1vw, 0.875rem);
+  --step-0: clamp(1rem, 0.96rem + 0.2vw, 1.0625rem);
+  --step-1: clamp(1.25rem, 1.1rem + 0.7vw, 1.625rem);
+  --step-2: clamp(1.75rem, 1.4rem + 1.6vw, 2.75rem);
+  --step-hero: clamp(3rem, 1.2rem + 9vw, 9rem);
+  --tap: 44px;               /* minimum touch target */
+}
+/* Dark theme, and any section marked .band-dark inside a light page. */
+:root[data-theme="dark"], .band-dark {
+  --bg: #07090C;
+  --surface: #11161D;
+  --surface-2: #1A212B;
+  --text: #F2F6FA;
+  --text-muted: #A9B5C2;
+  --border: #3A4554;
+  --primary: #8FD0FF;
+  --on-primary: #04121F;
+  --accent: #8FD0FF;
+  --on-accent: #04121F;
+  --focus: #8FD0FF;
+  --success: #86DBA9;  --success-bg: #11301F;
+  --warning: #F4C772;  --warning-bg: #33260A;
+  --danger: #FFA391;   --danger-bg: #3D1812;
+  --info: #A6CDFF;     --info-bg: #112845;
+  --overlay: rgba(0, 0, 0, 0.65);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.4);
+}

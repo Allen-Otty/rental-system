@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="description" content="Makao: rent a home, buy land, book movers and home services across Kenya." />
+    <meta name="theme-color" content="#0A0C10" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Makao</title>
+    <script>
+      // Set the theme before first paint so there is no flash. Saved choice wins, then the device setting.
+      try {
+        var t = localStorage.getItem("makao-theme");
+        if (!t) t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        document.documentElement.setAttribute("data-theme", t);
+        var l = localStorage.getItem("makao-lang");
+        if (l) document.documentElement.setAttribute("lang", l);
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>Makao needs JavaScript to run.</noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
