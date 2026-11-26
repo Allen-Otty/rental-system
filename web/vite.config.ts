@@ -3,7 +3,10 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
+const base = process.env.VITE_BASE || "/";
+
 export default defineConfig({
+  base,
   plugins: [
     react(),
     VitePWA({
@@ -16,12 +19,13 @@ export default defineConfig({
         theme_color: "#0A0C10",
         background_color: "#0A0C10",
         display: "standalone",
-        start_url: "/",
+        start_url: base,
+        scope: base,
         icons: [{ src: "favicon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" }],
       },
       workbox: {
         // Cache the app shell and photos for offline; never cache API calls (rent data must be fresh).
-        navigateFallbackDenylist: [/^\/api\//],
+        navigateFallbackDenylist: [/\/api\//],
         runtimeCaching: [{ urlPattern: ({ request }) => request.destination === "image", handler: "StaleWhileRevalidate", options: { cacheName: "makao-images", expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 14 } } }],
       },
     }),

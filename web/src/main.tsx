@@ -11,5 +11,5 @@ import "./styles/pages.css";
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30_000 } } });
 createRoot(document.getElementById("root")!).render(
-  <StrictMode><QueryClientProvider client={qc}><I18nProvider><AuthProvider><BrowserRouter><App /></BrowserRouter></AuthProvider></I18nProvider></QueryClientProvider></StrictMode>,
+  <StrictMode><QueryClientProvider client={qc}><I18nProvider><AuthProvider><BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, "")}><App /></BrowserRouter></AuthProvider></I18nProvider></QueryClientProvider></StrictMode>,
 );

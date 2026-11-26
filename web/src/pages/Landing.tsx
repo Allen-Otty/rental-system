@@ -26,7 +26,7 @@ export default function Landing() {
             <input id="hero-q" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("landing.search")} autoComplete="off" />
             <button className="btn" type="submit">{t("common.search")}</button>
           </form>
-          <PhotoSlot src="/photos/hero.jpg" alt="A modern apartment building in Nairobi" className="hero-photo" ratio="21 / 9" />
+          <PhotoSlot src={`${import.meta.env.BASE_URL}photos/hero.jpg`} alt="A modern apartment building in Nairobi" className="hero-photo" ratio="21 / 9" />
         </div>
       </section>
 
