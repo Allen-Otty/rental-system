@@ -2,8 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { api, tokens } from "./api";
 import type { Me } from "./types";
 
-interface AuthCtx { user: Me | null; ready: boolean; login: (identifier: string, password: string) => Promise<Me>; logout: () => void }
-const Auth = createContext<AuthCtx>({ user: null, ready: true, login: async () => { throw new Error("no provider"); }, logout: () => {} });
+interface AuthCtx { user: Me | null; ready: boolean; login: (identifier: string, password: string) => Promise<Me>; logout: () => void; enter: (u: Me) => void }
+const Auth = createContext<AuthCtx>({ user: null, ready: true, login: async () => { throw new Error("no provider"); }, logout: () => {}, enter: () => {} });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Me | null>(null);
@@ -19,7 +19,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return r.user;
   }, []);
   const logout = useCallback(() => { tokens.clear(); setUser(null); }, []);
-  const value = useMemo(() => ({ user, ready, login, logout }), [user, ready, login, logout]);
+  const enter = useCallback((u: Me) => setUser(u), []); // signed in for this visit only, nothing stored
+  const value = useMemo(() => ({ user, ready, login, logout, enter }), [user, ready, login, logout, enter]);
   return <Auth.Provider value={value}>{children}</Auth.Provider>;
 }
 export const useAuth = () => useContext(Auth);

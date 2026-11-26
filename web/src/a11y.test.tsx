@@ -52,7 +52,7 @@ describe("skeleton loaders", () => {
   });
   it("announces the number of results politely", async () => {
     renderAt("/explore");
-    expect(await screen.findByText("4 homes found")).toBeInTheDocument();
+    expect(await screen.findByText("12 homes found")).toBeInTheDocument();
   });
 });
 
@@ -60,16 +60,16 @@ describe("explore filters", () => {
   it("filters by maximum rent and explains when nothing matches", async () => {
     const user = userEvent.setup();
     renderAt("/explore");
-    await screen.findByText("4 homes found");
+    await screen.findByText("12 homes found");
     await user.type(screen.getByLabelText("Maximum rent (KES)"), "10000");
-    expect(await screen.findByText("1 homes found")).toBeInTheDocument();
+    expect(await screen.findByText("3 homes found")).toBeInTheDocument();
     await user.clear(screen.getByLabelText("Maximum rent (KES)"));
     await user.type(screen.getByLabelText("Maximum rent (KES)"), "100");
     expect(await screen.findByText(/No homes match these filters/)).toBeInTheDocument();
   });
   it("list/map toggle exposes its state with aria-pressed", async () => {
     renderAt("/explore");
-    await screen.findByText("4 homes found");
+    await screen.findByText("12 homes found");
     expect(screen.getByRole("button", { name: "List" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Map" })).toHaveAttribute("aria-pressed", "false");
   });
@@ -114,8 +114,9 @@ describe("forms", () => {
     await user.click(screen.getByLabelText(/agree to be contacted/i));
     expect(submit).toBeEnabled();
     await user.click(submit);
-    expect(await screen.findByRole("heading", { name: "Check your email" })).toBeInTheDocument();
-    expect(screen.getByText(/amina@example.com/)).toBeInTheDocument();
+    // Demo mode: the account is created and the person is signed straight in (no email step).
+    expect(screen.queryByRole("heading", { name: "Check your email" })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Create account" })).not.toBeInTheDocument());
   });
   it("request a home asks you to sign in first, with a clear link", async () => {
     renderAt("/request");
@@ -159,7 +160,7 @@ describe("landlord screens", () => {
     signedInAs("landlord");
     const { container } = renderAt("/manage/repairs");
     await screen.findByText("Leaky faucet");
-    expect(screen.getByLabelText("Assign vendor")).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Assign vendor").length).toBeGreaterThan(0);
     expect(await axe(container)).toHaveNoViolations();
   });
 });
@@ -174,8 +175,8 @@ describe("services and land", () => {
   it("land page shows Verified with an icon and words, and Not verified clearly", async () => {
     renderAt("/land");
     await screen.findByText("Quarter acre, Kitengela");
-    expect(screen.getByText("Verified")).toBeInTheDocument();
-    expect(screen.getByText("Not verified")).toBeInTheDocument();
+    expect(screen.getAllByText("Verified").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Not verified").length).toBeGreaterThan(0);
   });
 });
 

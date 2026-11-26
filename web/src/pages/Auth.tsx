@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react
 import { useMutation } from "@tanstack/react-query";
 import { api, ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
+import type { Me } from "../lib/types";
 import { useT } from "../lib/i18n";
 import { FormError, Icon, Loading, SelectField, Skeleton, TextField } from "../components/ui";
 
@@ -43,9 +44,11 @@ function ResendLink({ email }: { email: string }) {
 
 export function Signup() {
   const t = useT();
+  const { user, enter } = useAuth();
   const [f, setF] = useState({ full_name: "", email: "", phone: "", password: "", role: "tenant", contact_consent: false });
-  const m = useMutation({ mutationFn: () => api("/auth/signup/", { method: "POST", body: f }) });
+  const m = useMutation({ mutationFn: async () => { const r = await api<{ user?: Me }>("/auth/signup/", { method: "POST", body: f }); if (r.user) enter(r.user); return r; } });
   const err = m.error instanceof ApiError ? m.error : undefined;
+  if (user) return <Navigate to={homeFor(user.role)} replace />;
   if (m.isSuccess) return (
     <div className="wrap narrow page"><h1 className="page-title">{t("auth.checkEmail")}</h1>
       <div className="card stack" style={{ marginTop: 20 }}><p role="status">{t("auth.checkEmailBody", { email: f.email })}</p><ResendLink email={f.email} /></div></div>
