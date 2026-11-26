@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="description" content="Mkeja: rent a home, buy land, book movers and home services across Kenya." />
+    <meta name="theme-color" content="#0A0C10" />
+    <link rel="icon" type="image/svg+xml" href="/rental-system/favicon.svg" />
+    <title>Mkeja</title>
+    <script>
+      // Set the theme before first paint so there is no flash. Saved choice wins, then the device setting.
+      try {
+        var t = localStorage.getItem("makao-theme");
+        if (!t) t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        document.documentElement.setAttribute("data-theme", t);
+        var l = localStorage.getItem("makao-lang");
+        if (l) document.documentElement.setAttribute("lang", l);
+      } catch (e) {}
+    </script>
+    <script type="module" crossorigin src="/rental-system/assets/index-XBL6SmNS.js"></script>
+    <link rel="stylesheet" crossorigin href="/rental-system/assets/index-SKXtTGPs.css">
+  <link rel="manifest" href="/rental-system/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/rental-system/registerSW.js"></script></head>
+  <body>
+    <div id="root"></div>
+    <noscript>Mkeja needs JavaScript to run.</noscript>
+  </body>
+</html>
