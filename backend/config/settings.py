@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "apps.tenancy",
     "apps.services",
     "apps.tenant_requests",
+    "apps.callcenter",
     "apps.audit",
 ]
 
@@ -185,3 +186,8 @@ if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+
+# --- Call center / telephony -------------------------------------------------
+TELEPHONY_BACKEND = os.environ.get("TELEPHONY_BACKEND", "mock")  # "mock" (dev/tests) or "africastalking"
+AT_VOICE_NUMBER = os.environ.get("AT_VOICE_NUMBER", "")          # your Africa's Talking voice number
+TELEPHONY_WEBHOOK_SECRET = os.environ.get("TELEPHONY_WEBHOOK_SECRET", "")  # random string used in the webhook URL; empty disables it

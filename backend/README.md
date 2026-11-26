@@ -72,3 +72,20 @@ Bookings (viewings, applications, reservations, tenancies) with the status workf
 (percent of first month's rent, per-landlord override already stored on the user), notification delivery
 (WhatsApp, push, email, SMS, Telegram) with duplicate-event protection, WhatsApp bot, and pointing the
 frontend at this API.
+
+## Call center (`apps/callcenter`)
+
+Support staff (existing `staff`/`admin` users with a `CallAgent` profile) take and make calls, look up the caller, log tickets and callbacks; supervisors get a live wallboard. All endpoints are under `/api/v1/callcenter/`.
+
+| Area | Endpoints |
+|---|---|
+| Agent | `GET/PATCH agent/me/` (status: offline, available, break, wrap_up), `GET agents/` (supervisors) |
+| Calls | `GET calls/` (agents see their own and the waiting queue; supervisors see all), `POST calls/{id}/accept/`, `POST calls/{id}/end/` (`disposition`, `summary`), `POST calls/outbound/` (`to`), `GET calls/{id}/screen-pop/` |
+| Tickets | `tickets/` (list/create/update; `status=resolved` stamps `resolved_at`), `POST tickets/{id}/notes/` |
+| Callbacks | `callbacks/` (missed calls create one automatically) |
+| Supervisors | `GET wallboard/` (calls today, answer rate, waiting, longest wait, agents by status) |
+| Provider | `POST webhook/<TELEPHONY_WEBHOOK_SECRET>/voice/` |
+
+Setup: create a `Queue` per phone-menu option (`ivr_digit` 1, 2, 3), a `CallAgent` for each support user (assign queues), and set `TELEPHONY_WEBHOOK_SECRET` to a long random string. `TELEPHONY_BACKEND=mock` (default) records calls without dialling. The `africastalking` backend and the XML replies in `VoiceWebhookView` are **untested against a live account**: try them in Africa's Talking's sandbox before going live. Agents answer on their registered phone numbers (the caller is bridged with `<Dial>`); a browser softphone is a later step.
+
+Privacy: the screen pop shows only name, role, active leases and overdue balance (never ID numbers or documents) and every lookup is written to the audit log. The menu tells callers the call may be recorded; confirm your recording and retention rules with a lawyer (Kenya Data Protection Act).
