@@ -17,4 +17,5 @@ urlpatterns = [
     path("api/v1/", include("apps.tenancy.urls")),
     path("api/v1/", include("apps.services.urls")),
     path("api/v1/", include("apps.tenant_requests.urls")),
+    path("api/v1/", include("apps.callcenter.urls")),
 ]
