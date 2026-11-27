@@ -2,7 +2,10 @@ import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError, type Page } from "../lib/api";
 import { dateShort, kes, monthLabel } from "../lib/format";
+import { Link } from "react-router-dom";
 import { useI18n } from "../lib/i18n";
+import { useAuth } from "../lib/auth";
+import { Avatar, Hero, Pill, Progress, SectionHead, Tile, useL, useNotice } from "../components/kit";
 import type { Dashboard, Invoice, Lease, Repair, Unit, Vendor } from "../lib/types";
 import { Async } from "../components/data";
 import { FormError, Icon, ListSkeleton, Loading, SelectField, Skeleton, StatSkeleton, StatusTag, TextField } from "../components/ui";
@@ -11,33 +14,64 @@ const Stat = ({ label, value, sub, tone }: { label: string; value: string; sub?:
   <div className="card stat"><p className="muted">{label}</p><p className={`stat-n ${tone === "danger" ? "danger" : ""}`}>{value}</p>{sub && <p className="muted">{sub}</p>}</div>
 );
 
+interface Queue { viewings: { id: number; name: string; note: string; budget: string; when: string }[]; applications: { id: number; name: string; note: string; detail: string }[] }
 export function Overview() {
-  const { t } = useI18n();
+  const L = useL();
+  const { user } = useAuth();
   const qc = useQueryClient();
   const d = useQuery({ queryKey: ["dash"], queryFn: () => api<Dashboard>("/dashboard/landlord/") });
+  const mine = useQuery({ queryKey: ["my-units"], queryFn: () => api<Page<Unit>>("/units/", { query: { scope: "mine" } }) });
+  const queue = useQuery({ queryKey: ["queue"], queryFn: () => api<Queue>("/landlord/queue/"), retry: false });
+  const reps = useQuery({ queryKey: ["repairs"], queryFn: () => api<Page<Repair>>("/repairs/") });
   const remind = useMutation({ mutationFn: () => api<{ sent: number }>("/invoices/remind-overdue/", { method: "POST" }), onSuccess: () => qc.invalidateQueries({ queryKey: ["dash"] }) });
   const gen = useMutation({ mutationFn: () => api<{ created: number }>("/invoices/generate/", { method: "POST", body: {} }), onSuccess: () => qc.invalidateQueries() });
+  const n = useNotice();
+  const units = mine.data?.results ?? [];
+  const byProp = Object.entries(units.reduce<Record<string, { occ: number; all: number }>>((a, u) => { const k = u.property_name; a[k] ??= { occ: 0, all: 0 }; a[k].all += 1; if (u.status === "occupied") a[k].occ += 1; return a; }, {}));
+  const open = (reps.data?.results ?? []).filter((r) => r.status !== "done" && r.status !== "closed");
   return (
-    <div className="wrap page"><h1 className="page-title">{t("mg.title")}</h1>
-      <Async q={d} skeleton={<StatSkeleton />}>{(x) => (
-        <>
-          <div className="grid stats" style={{ margin: "20px 0" }}>
-            <Stat label={t("mg.collected")} value={kes(x.rent_collected)} sub={`${t("mg.due")}: ${kes(x.rent_due)}`} />
-            <Stat label={t("mg.occupancy")} value={`${x.occupancy.percent}%`} sub={`${x.occupancy.occupied} / ${x.occupancy.total}`} />
-            <Stat label={t("mg.arrears")} value={kes(x.arrears.amount)} sub={`${x.arrears.tenants}`} tone={Number(x.arrears.amount) > 0 ? "danger" : undefined} />
-            <Stat label={t("mg.repairs")} value={String(x.open_repairs)} sub={x.repairs_needing_vendor ? `${x.repairs_needing_vendor} → ${t("mg.assign")}` : undefined} />
-          </div>
-          <div className="row wrapx" style={{ gap: 12, marginBottom: 28 }}>
-            <button className="btn" type="button" onClick={() => remind.mutate()} disabled={remind.isPending}>{t("mg.remind")}</button>
-            <button className="btn btn-ghost" type="button" onClick={() => gen.mutate()} disabled={gen.isPending}>{t("mg.generate")}</button>
-            <p role="status" aria-live="polite" className="muted">{remind.data && t("mg.reminded", { n: remind.data.sent })}{gen.data && t("mg.generated", { n: gen.data.created })}</p>
-          </div>
-          <section aria-labelledby="att"><h2 id="att" className="h3" style={{ marginBottom: 12 }}>{t("mg.attention")}</h2>
-            {x.attention.length === 0 ? <p className="muted">{t("common.none")}</p> : <ul className="stack" style={{ listStyle: "none", padding: 0 }}>{x.attention.map((a, i) => (
-              <li key={i} className="card row between"><div><p><strong>{a.title}</strong></p><p className="muted">{a.detail}</p></div>{a.type === "rent_overdue" ? <StatusTag status="overdue" /> : a.type === "lease_ending" ? <StatusTag status="scheduled" /> : <StatusTag status="open" />}</li>
-            ))}</ul>}
-          </section>
-        </>)}</Async></div>
+    <div className="wrap page app"><h1 className="page-title">{L("Landlord workspace", "Nafasi ya mwenye nyumba")}</h1>
+      <Async q={d} skeleton={<StatSkeleton />}>{(x) => {
+        const collected = Number(x.rent_collected), due = Number(x.rent_due);
+        const pct = due > 0 ? (collected / due) * 100 : 0;
+        return (
+          <div className="stack">
+            <p className="strip"><Icon name="building" size={18} /><span className="grow">{L("All properties", "Mali zote")} · {x.occupancy.total} {L("units", "nyumba")}</span><Pill tone="mint">{Math.round(pct)}% {L("collected", "imekusanywa")}</Pill></p>
+            <Hero aria-label={L("Rent this month", "Kodi ya mwezi huu")}>
+              <p className="small muted">{L("CURRENT MONTH REVENUE", "MAPATO YA MWEZI HUU")}</p>
+              <p className="big-n"><small className="mango">KES</small>{collected.toLocaleString("en-KE")}</p>
+              <p className="small muted" style={{ margin: "6px 0 8px" }}>{L("of", "kati ya")} {kes(x.rent_due)} {L("due", "inayodaiwa")}</p>
+              <Progress value={pct} label={L("Rent collected", "Kodi iliyokusanywa")} />
+              <div className="stat-row"><div><strong>{x.occupancy.occupied}</strong><small>{L("Occupied", "Zimejaa")}</small></div><div><strong>{x.occupancy.total - x.occupancy.occupied}</strong><small>{L("Vacant", "Wazi")}</small></div><div><strong>{x.arrears.tenants}</strong><small>{L("Overdue", "Zimechelewa")}</small></div></div>
+              <button type="button" className="btn btn-mango" style={{ marginTop: 14 }} onClick={() => remind.mutate()} disabled={remind.isPending}><Icon name="chat" />{L("Send M-Pesa rent reminder SMS", "Tuma SMS ya kikumbusho cha kodi")} ({x.arrears.tenants})</button>
+              <Link className="btn btn-dark" to="/mpesa"><Icon name="wallet" />{L("Withdraw net payout", "Toa malipo")}</Link>
+              <p role="status" aria-live="polite" className="small muted">{remind.data && L(`${remind.data.sent} reminders sent.`, `Vikumbusho ${remind.data.sent} vimetumwa.`)}{gen.data && L(` ${gen.data.created} invoices created.`, ` Ankara ${gen.data.created} zimeundwa.`)}</p>
+            </Hero>
+            <SectionHead title={L("Management tools", "Zana za usimamizi")} />
+            <div className="tiles four">
+              <Tile to="/manage/properties/new" icon="plus" label={L("Add unit or listing", "Ongeza nyumba")} />
+              <Tile to="/manage/tenants" icon="users" label={L("Tenant directory", "Wapangaji")} />
+              <Tile to="/manage/repairs" icon="wrench" label={L("Log ticket", "Tiketi")} />
+              <Tile to="/manage/rent" icon="file" label={L("Rent and tax", "Kodi na ushuru")} />
+            </div>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => gen.mutate()} disabled={gen.isPending}>{L("Create this month's invoices", "Unda ankara za mwezi huu")}</button>
+            <section className="card stack" aria-labelledby="occ"><div className="row between"><div><h2 id="occ" className="h3">{L("Occupancy overview", "Hali ya nyumba")}</h2><p className="muted small">{x.occupancy.occupied} {L("of", "kati ya")} {x.occupancy.total} {L("units occupied", "zimejaa")}</p></div><strong className="h3" style={{ color: "var(--accent)" }}>{x.occupancy.percent}%</strong></div>
+              <Progress value={x.occupancy.percent} label={L("Occupancy", "Hali ya nyumba")} />
+              {byProp.length > 0 && <ul className="chips-row">{byProp.map(([name, v]) => <li key={name}><Pill tone={v.occ === v.all ? "purple" : "mango"}>{name} ({v.occ}/{v.all})</Pill></li>)}</ul>}
+              <Link to="/manage/properties" className="link-btn">{L("Manage properties", "Simamia mali")}</Link></section>
+            <SectionHead title={L("Urgent actions", "Vitendo vya haraka")} action={<span className="pill pill-mango">{x.attention.length + (queue.data ? queue.data.viewings.length + queue.data.applications.length : 0)}</span>} />
+            <ul className="stack" style={{ listStyle: "none", padding: 0 }}>
+              {queue.data?.viewings.map((v) => <li key={`v${v.id}`} className="card stack" style={{ ["--gap" as string]: "8px" }}><div className="row between"><Pill tone="mint" icon="clock">{L("Viewing request", "Ombi la ziara")}</Pill><span className="small">{v.when}</span></div><div className="row"><Avatar name={v.name} size={48} /><div><strong>{v.name}</strong><p className="muted small">{v.note}</p><Pill tone="purple">{L("Budget", "Bajeti")}: KES {Number(v.budget).toLocaleString("en-KE")}</Pill></div></div>
+                <div className="row"><Link className="btn btn-ghost btn-sm grow" to="/chat">{L("Message", "Ujumbe")}</Link><button type="button" className="btn btn-mango btn-sm grow" onClick={() => n.show(L("Viewing approved.", "Ziara imeidhinishwa."))}>{L("Approve viewing", "Idhinisha ziara")}</button></div></li>)}
+              {queue.data?.applications.map((a) => <li key={`a${a.id}`} className="card stack" style={{ ["--gap" as string]: "8px" }}><div className="row between"><Pill tone="mint" icon="file">{L("Lease application", "Ombi la kupanga")}</Pill><Pill tone="mango">{L("Pending approval", "Inasubiri")}</Pill></div><div><strong>{a.name}</strong><p className="muted small">{a.note}. {a.detail}</p></div><Link className="btn btn-sm" to="/chat">{L("Review and generate digital lease", "Kagua na uunde mkataba")}</Link></li>)}
+              {x.attention.map((a, i) => <li key={i} className="card row between"><div><p><strong>{a.title}</strong></p><p className="muted small">{a.detail}</p></div>{a.type === "rent_overdue" ? <StatusTag status="overdue" /> : a.type === "lease_ending" ? <StatusTag status="scheduled" /> : <StatusTag status="open" />}</li>)}
+            </ul>
+            {n.node}
+            {open.length > 0 && <><SectionHead title={L("Active maintenance", "Matengenezo yanayoendelea")} action={<span className="small muted">{open.length} {L("in progress", "yanaendelea")}</span>} />
+              <ul className="stack" style={{ listStyle: "none", padding: 0 }}>{open.slice(0, 2).map((r) => <li key={r.id} className="card row between"><div><Pill tone={r.priority === "high" ? "danger" : "mint"}>{r.priority}</Pill><p style={{ marginTop: 6 }}><strong>{r.title}</strong></p><p className="muted small">{r.unit_label}, {r.property_name}</p></div><StatusTag status={r.status} /></li>)}</ul></>}
+            <p className="strip"><Icon name="shield" size={18} /><span className="grow small">{L("Deposits and M-Pesa receipts are recorded on Makao for both you and your tenants.", "Amana na risiti za M-Pesa zinarekodiwa kwenye Makao kwa wewe na wapangaji wako.")}</span></p>
+            {user?.landlord_verified === false && <p className="notice" role="note"><Icon name="alert" />{L("Your account is waiting for admin verification before listings go public.", "Akaunti yako inasubiri uthibitisho wa msimamizi kabla matangazo hayajaonekana.")}</p>}
+          </div>); }}</Async></div>
   );
 }
 

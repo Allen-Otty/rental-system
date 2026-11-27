@@ -32,7 +32,7 @@ export function TenantHome() {
   );
 }
 
-export function ProInbox() {
+export function ProQuotes() {
   const { t } = useI18n();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["inbox"], queryFn: () => api<Page<QuoteRequest>>("/quote-requests/", { query: { inbox: 1 } }) });
@@ -41,18 +41,23 @@ export function ProInbox() {
   const send = useMutation({ mutationFn: (id: number) => api<Quote>(`/quote-requests/${id}/quotes/`, { method: "POST", body: { price: price[id], message: note[id] ?? "" } }), onSuccess: () => qc.invalidateQueries({ queryKey: ["inbox"] }) });
   const err = send.error instanceof ApiError ? send.error : undefined;
   return (
-    <div className="wrap page"><h1 className="page-title">{t("pro.title")}</h1>
-      <Async q={q} skeleton={<ListSkeleton card={false} n={3} />} isEmpty={(d) => d.results.length === 0}>{(d) => (
-        <ul className="stack" style={{ listStyle: "none", padding: 0, marginTop: 20 }}>{d.results.map((r) => (
-          <li key={r.id} className="card stack" style={{ ["--gap" as string]: "10px" }}><p><strong>{r.category}</strong>{r.from_place && <> · {r.from_place} → {r.to_place}</>}</p><p>{r.description}</p>
+    <Async q={q} skeleton={<ListSkeleton card={false} n={3} />} isEmpty={(d) => d.results.length === 0}>{(d) => (
+      <ul className="stack" style={{ listStyle: "none", padding: 0 }}>{d.results.map((r) => (
+        <li key={r.id} className="card stack" style={{ ["--gap" as string]: "10px" }}><p><strong>{r.category}</strong>{r.from_place && <> · {r.from_place} → {r.to_place}</>}</p><p>{r.description}</p>
             <form className="two" noValidate onSubmit={(e: FormEvent) => { e.preventDefault(); send.mutate(r.id); }}>
               <TextField label={t("pro.price")} type="number" required inputMode="numeric" value={price[r.id] ?? ""} onChange={(e) => setPrice({ ...price, [r.id]: e.target.value })} error={send.variables === r.id ? err?.fields.price : undefined} />
               <TextField label={t("pro.note")} value={note[r.id] ?? ""} onChange={(e) => setNote({ ...note, [r.id]: e.target.value })} />
               <div><button className="btn btn-sm" type="submit" disabled={send.isPending || !price[r.id]}>{t("pro.quote")}</button></div></form>
             {send.isSuccess && send.variables === r.id && <p className="notice" role="status"><Icon name="check" />{t("pro.sent")}</p>}
             {send.variables === r.id && err && !err.fields.price && <FormError message={err.message} />}
-          </li>))}</ul>)}</Async></div>
+          </li>))}</ul>)}</Async>
   );
+}
+
+
+export function ProInbox() {
+  const { t } = useI18n();
+  return <div className="wrap page"><h1 className="page-title">{t("pro.title")}</h1><div style={{ marginTop: 20 }}><ProQuotes /></div></div>;
 }
 
 export function NotFound() {

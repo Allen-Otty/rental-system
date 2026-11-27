@@ -141,9 +141,9 @@ describe("landlord screens", () => {
   it("overview shows skeleton stats, then numbers; statuses use words and icons, not colour alone", async () => {
     signedInAs("landlord");
     const { container } = renderAt("/manage");
-    await screen.findByText("Rent collected");
+    await screen.findByText("CURRENT MONTH REVENUE");
     expect(await axe(container)).toHaveNoViolations();
-    const tag = screen.getByText("Overdue");
+    const tag = screen.getAllByText("Overdue").find((el) => el.closest(".tag"))!;
     expect(tag.closest(".tag")?.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
   });
   it("rent page: recording a payment uses labelled fields and updates the status", async () => {
@@ -184,5 +184,43 @@ describe("translations", () => {
   it("every English string has a Kiswahili one", async () => {
     const mod = await import("./lib/i18n");
     expect(mod).toBeTruthy(); // types already force the same keys; this guards empty strings
+  });
+});
+
+describe("new app screens", () => {
+  it("landlord can add a property with a unit, and it shows in their list", async () => {
+    signedInAs("landlord");
+    const user = userEvent.setup();
+    const { container } = renderAt("/manage/properties/new");
+    await user.type(await screen.findByLabelText(/Property name/), "Sunrise Court");
+    await user.type(screen.getByLabelText(/Estate or area/), "Kilimani");
+    await user.type(screen.getByLabelText(/Latitude/), "-1.29");
+    await user.type(screen.getByLabelText(/Longitude/), "36.78");
+    await user.type(screen.getByLabelText(/Unit name or number/), "A1");
+    await user.type(screen.getByLabelText(/Monthly rent/), "30000");
+    expect(await axe(container)).toHaveNoViolations();
+    await user.click(screen.getByRole("button", { name: "Publish listing" }));
+    expect(await screen.findByText(/Property saved/)).toBeInTheDocument();
+  });
+  it.each([["tenant", "/mpesa", "M-Pesa Hub"], ["tenant", "/account", "Account hub"], ["tenant", "/workspaces", "Switch workspace"], ["tenant", "/chat", "Mzee J. Ambani"], ["provider", "/pro", "Pro workspace"], ["admin", "/admin", "Admin dashboard"], ["landlord", "/mpesa", "M-Pesa"]])("%s %s renders with no axe violations", async (role, path, heading) => {
+    signedInAs(role);
+    const { container } = renderAt(path);
+    await screen.findByRole("heading", { name: heading });
+    if (path === "/pro" || path === "/admin" || path === "/chat") await screen.findAllByText(/./);
+    expect(await axe(container)).toHaveNoViolations();
+  });
+  it("the bottom tabs follow the role", async () => {
+    signedInAs("landlord");
+    renderAt("/manage");
+    const nav = await screen.findByRole("navigation", { name: "Main" });
+    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Discover", "Services", "M-Pesa", "Account"]);
+  });
+  it("switching role in demo goes to that workspace", async () => {
+    signedInAs("tenant");
+    const user = userEvent.setup();
+    renderAt("/workspaces");
+    const cards = await screen.findAllByRole("button", { name: "Unlock" });
+    await user.click(cards[0]);
+    expect(await screen.findByRole("heading", { name: "Admin dashboard" })).toBeInTheDocument();
   });
 });

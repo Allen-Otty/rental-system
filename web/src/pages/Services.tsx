@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, ApiError, type Page } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -7,13 +7,18 @@ import { kes } from "../lib/format";
 import { useI18n } from "../lib/i18n";
 import type { Category, Provider } from "../lib/types";
 import { Async } from "../components/data";
-import { AreaField, FormError, Icon, ListSkeleton, SelectField, TextField } from "../components/ui";
+import { AreaField, FormError, Icon, ListSkeleton, TextField } from "../components/ui";
+import { Hero, Pill, useL } from "../components/kit";
+import { OrderTracker } from "./Tenant";
 
 export default function Services() {
   const { t, lang } = useI18n();
   const { user } = useAuth();
   const cats = useQuery({ queryKey: ["cats"], queryFn: () => api<Category[]>("/service-categories/"), staleTime: 3600_000 });
-  const [slug, setSlug] = useState("movers");
+  const L = useL();
+  const [sp] = useSearchParams();
+  const [slug, setSlug] = useState(sp.get("c") ?? "movers");
+  const ICON: Record<string, string> = { movers: "truck", cleaning: "broom", gas: "flame", plumbing: "wrench", electrical: "bolt", laundry: "shirt", water: "drop" };
   const provs = useQuery({ queryKey: ["providers", slug], queryFn: () => api<Page<Provider>>("/providers/", { query: { category: slug } }) });
   const [f, setF] = useState({ from_place: "", to_place: "", description: "", preferred_date: "" });
   const m = useMutation({ mutationFn: () => api("/quote-requests/", { method: "POST", body: { category: slug, ...f, preferred_date: f.preferred_date || null } }) });
@@ -23,9 +28,13 @@ export default function Services() {
   return (
     <div className="wrap page">
       <h1 className="page-title">{t("svc.title")}</h1>
-      <p className="muted" style={{ margin: "8px 0 20px" }}>{t("svc.sub")}</p>
+      <p className="muted" style={{ margin: "8px 0 16px" }}>{t("svc.sub")}</p>
+      <div className="stack" style={{ marginBottom: 18 }}>
+        <OrderTracker dark />
+        <Hero><Pill tone="mango">{L("Rainy season offer", "Ofa ya msimu wa mvua")}</Pill><h2 className="h3" style={{ margin: "8px 0" }}>{L("Home inspection bundle", "Kifurushi cha ukaguzi wa nyumba")}</h2><p className="muted">{L("Solar check, gutter clearing and roof leak fix in one visit.", "Ukaguzi wa sola, usafi wa mifereji na kuziba uvujaji wa paa kwa ziara moja.")}</p><p className="big-n" style={{ margin: "12px 0" }}><small>KES</small>2,400</p><button type="button" className="btn btn-mango" onClick={() => setSlug("plumbing")}>{L("Book bundle", "Weka kifurushi")}</button></Hero>
+      </div>
       <Async q={cats} skeleton={<ListSkeleton n={4} card={false} />}>
-        {(list) => <div role="group" aria-label={t("svc.title")} className="chips">{list.map((c) => <button key={c.slug} type="button" className="chip" aria-pressed={slug === c.slug} onClick={() => setSlug(c.slug)}>{lang === "sw" ? c.name_sw : c.name_en}</button>)}</div>}
+        {(list) => <div role="group" aria-label={t("svc.title")} className="chips">{list.map((c) => <button key={c.slug} type="button" className="chip" aria-pressed={slug === c.slug} onClick={() => setSlug(c.slug)}><Icon name={ICON[c.slug] ?? "briefcase"} size={16} /> {lang === "sw" ? c.name_sw : c.name_en}</button>)}</div>}
       </Async>
       <div className="two-col">
         <section aria-labelledby="prov"><h2 id="prov" className="h3" style={{ marginBottom: 14 }}>{t("svc.providers")}</h2>

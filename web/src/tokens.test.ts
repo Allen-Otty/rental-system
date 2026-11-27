@@ -19,6 +19,7 @@ const TEXT_PAIRS: [string, string, number][] = [
   ["on-primary", "primary", 4.5], ["on-accent", "accent", 4.5], ["accent", "bg", 4.5], ["accent", "surface", 4.5],
   ["success", "success-bg", 4.5], ["warning", "warning-bg", 4.5], ["danger", "danger-bg", 4.5], ["info", "info-bg", 4.5],
   ["danger", "surface", 4.5], ["danger", "bg", 4.5], ["success", "surface", 4.5],
+  ["on-hero", "hero-bg", 4.5], ["on-hero-muted", "hero-bg", 4.5], ["on-hero", "bar", 4.5], ["on-mango", "mango", 4.5],
 ];
 for (const [name, t] of [["light", light], ["dark", dark]] as const) {
   describe(`${name} theme contrast (WCAG AA)`, () => {
@@ -29,11 +30,11 @@ for (const [name, t] of [["light", light], ["dark", dark]] as const) {
     });
   });
 }
-describe("hero text on the sky gradient", () => {
-  it("dark text on the light sky and light text on the night sky stay readable", () => {
-    expect(ratio(light.text, "#BFE3FB")).toBeGreaterThanOrEqual(7);
-    expect(ratio(light.accent, "#BFE3FB")).toBeGreaterThanOrEqual(3); // large headline text needs 3:1
-    expect(ratio(dark.text, "#0F2F4D")).toBeGreaterThanOrEqual(7);
-    expect(ratio(dark.accent, "#0F2F4D")).toBeGreaterThanOrEqual(3);
+describe("hero text on the mint gradient", () => {
+  it("dark text on the light mint and light text on the deep mint stay readable", () => {
+    expect(ratio(light.text, "#BDEBD6")).toBeGreaterThanOrEqual(7);
+    expect(ratio(light.accent, "#BDEBD6")).toBeGreaterThanOrEqual(3); // large headline text needs 3:1
+    expect(ratio(dark.text, "#1B3D30")).toBeGreaterThanOrEqual(7);
+    expect(ratio(dark.accent, "#1B3D30")).toBeGreaterThanOrEqual(3);
   });
 });

@@ -2,25 +2,33 @@
    so a theme can change the colour without touching a component. Every text/background pair is
    checked against WCAG AA (4.5:1 body, 3:1 large text and UI borders) in src/tokens.test.ts. */
 :root {
-  --sky: #5BB8F5;            /* brand colour: decoration and large shapes only, never small text */
-  --bg: #F3F7FB;
-  --surface: #FFFFFF;
-  --surface-2: #E8EFF6;
-  --text: #0A0C10;
-  --text-muted: #46505C;
-  --border: #C3CFDB;
-  --primary: #0A0C10;        /* main button */
+  --mint: #CFF1E2;           /* 60%: the page and its surfaces (mint) */
+  --purple: #5A2D9C;         /* 30%: buttons, links, headings and nav (purple) */
+  --mango: #FFB02E;          /* 10%: highlights only, never small text (mango) */
+  --sky: #A8E3C8;            /* photo placeholder gradient (mint) */
+  --bg: #E6F7EF;
+  --surface: #F6FDF9;
+  --surface-2: #D3F0E2;
+  --text: #1B1033;
+  --text-muted: #4A4263;
+  --border: #8EBFA8;
+  --primary: #5A2D9C;        /* main button */
   --on-primary: #FFFFFF;
-  --accent: #0B5CAD;         /* links and small highlights */
+  --accent: #5A2D9C;         /* links and small highlights */
   --on-accent: #FFFFFF;
-  --focus: #0B5CAD;
-  --success: #12623A;  --success-bg: #DFF3E7;
-  --warning: #7A4A00;  --warning-bg: #FFEFCC;
+  --focus: #5A2D9C;
+  --success: #12623A;  --success-bg: #D2F1DF;
+  --warning: #6B3D00;  --warning-bg: #FFE3A6;
   --danger: #A12A16;   --danger-bg: #FCE3DE;
-  --info: #134F9C;     --info-bg: #E1ECFB;
-  --overlay: rgba(10, 12, 16, 0.55);
+  --info: #43228A;     --info-bg: #E6DCFA;
+  --bar: #3A1A6E;            /* purple top bar and hero cards */
+  --hero-bg: #3A1A6E;
+  --on-hero: #FFFFFF;
+  --on-hero-muted: #DCCFF6;
+  --on-mango: #1B1033;       /* text on mango buttons */
+  --overlay: rgba(27, 16, 51, 0.55);
   --radius: 16px; --radius-sm: 10px;
-  --shadow: 0 1px 2px rgba(10, 12, 16, 0.06), 0 8px 24px rgba(10, 12, 16, 0.08);
+  --shadow: 0 1px 2px rgba(27, 16, 51, 0.06), 0 8px 24px rgba(27, 16, 51, 0.08);
   --font: "Inter", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
   --step--1: clamp(0.8125rem, 0.79rem + 0.1vw, 0.875rem);
   --step-0: clamp(1rem, 0.96rem + 0.2vw, 1.0625rem);
@@ -31,21 +39,23 @@
 }
 /* Dark theme, and any section marked .band-dark inside a light page. */
 :root[data-theme="dark"], .band-dark {
-  --bg: #07090C;
-  --surface: #11161D;
-  --surface-2: #1A212B;
-  --text: #F2F6FA;
-  --text-muted: #A9B5C2;
-  --border: #3A4554;
-  --primary: #8FD0FF;
-  --on-primary: #04121F;
-  --accent: #8FD0FF;
-  --on-accent: #04121F;
-  --focus: #8FD0FF;
+  --mint: #12261E; --purple: #C9A9FF; --mango: #FFC25A; --sky: #1D3A2E;
+  --bg: #0B1B15;
+  --surface: #12261E;
+  --surface-2: #1B382B;
+  --text: #EAF9F2;
+  --text-muted: #A9CBBB;
+  --border: #4A7B66;
+  --primary: #C9A9FF;
+  --on-primary: #1B0B3A;
+  --accent: #C9A9FF;
+  --on-accent: #1B0B3A;
+  --focus: #C9A9FF;
   --success: #86DBA9;  --success-bg: #11301F;
-  --warning: #F4C772;  --warning-bg: #33260A;
+  --warning: #FFC25A;  --warning-bg: #3A2A06;
   --danger: #FFA391;   --danger-bg: #3D1812;
-  --info: #A6CDFF;     --info-bg: #112845;
+  --info: #D3BCFF;     --info-bg: #2A1850;
+  --bar: #1E0E42; --hero-bg: #2B1560; --on-hero: #FFFFFF; --on-hero-muted: #D5C4F5; --on-mango: #1B1033;
   --overlay: rgba(0, 0, 0, 0.65);
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.4);
 }

@@ -8,6 +8,7 @@ import { I18nProvider } from "./lib/i18n";
 import "./styles/tokens.css";
 import "./styles/base.css";
 import "./styles/pages.css";
+import "./styles/app.css";
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30_000 } } });
 createRoot(document.getElementById("root")!).render(

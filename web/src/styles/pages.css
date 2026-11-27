@@ -30,8 +30,8 @@
 .check-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); column-gap: 12px; }
 
 /* Hero */
-.hero { background: linear-gradient(180deg, #BFE3FB 0%, #E3F2FE 58%, var(--bg) 100%); padding: clamp(40px, 8vw, 96px) 0 0; overflow: hidden; }
-:root[data-theme="dark"] .hero { background: linear-gradient(180deg, #0F2F4D 0%, #0A1826 58%, var(--bg) 100%); }
+.hero { background: linear-gradient(180deg, #BDEBD6 0%, #DDF5EA 58%, var(--bg) 100%); padding: clamp(40px, 8vw, 96px) 0 0; overflow: hidden; }
+:root[data-theme="dark"] .hero { background: linear-gradient(180deg, #1B3D30 0%, #0F2219 58%, var(--bg) 100%); }
 .hero-title { font-size: var(--step-hero); font-weight: 800; letter-spacing: -0.05em; line-height: .95; }
 .hero-title span { display: block; }
 .hero-accent { color: var(--accent); }

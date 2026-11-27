@@ -7,7 +7,7 @@ import type { Me } from "../lib/types";
 import { useT } from "../lib/i18n";
 import { FormError, Icon, Loading, SelectField, Skeleton, TextField } from "../components/ui";
 
-export function homeFor(role: string) { return role === "landlord" || role === "agent" ? "/manage" : role === "provider" ? "/pro" : role === "tenant" ? "/my" : "/"; }
+export function homeFor(role: string) { return role === "landlord" || role === "agent" ? "/manage" : role === "provider" ? "/pro" : role === "admin" || role === "staff" ? "/admin" : role === "tenant" ? "/my" : "/"; }
 
 export function Login() {
   const t = useT();

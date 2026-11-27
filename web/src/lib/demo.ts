@@ -58,23 +58,45 @@ const leases = [
 const repairs = [{ id: 1, unit: 1, unit_label: "2B", property_name: "Maple Court", title: "Leaky faucet", description: "Kitchen sink keeps dripping.", priority: "high", status: "open", vendor: null, vendor_name: null, visit_at: null, created_at: day(-2), updates: [{ id: 1, text: "Request created", created_at: day(-2) }] },
   { id: 2, unit: 3, unit_label: "A3", property_name: "Acacia Gardens", title: "Broken gate lock", description: "Compound gate does not lock at night.", priority: "medium", status: "scheduled", vendor: 1, vendor_name: "Alex Plumbing Co.", visit_at: day(2), created_at: day(-6), updates: [{ id: 2, text: "Request created", created_at: day(-6) }, { id: 3, text: "Vendor scheduled", created_at: day(-4) }] },
   { id: 3, unit: 4, unit_label: "House", property_name: "Karen Close", title: "Garden light not working", description: "Front path light is off.", priority: "low", status: "done", vendor: 2, vendor_name: "BrightWire Electricals", visit_at: day(-8), created_at: day(-12), updates: [{ id: 4, text: "Request created", created_at: day(-12) }, { id: 5, text: "Fixed and tested", created_at: day(-8) }] }];
-const users: Record<string, Me> = {
+export const demoUsers: Record<string, Me> = {
+  admin: { id: 4, phone: "+254733000004", email: "admin@demo", full_name: "Wanjiku Kamau", role: "admin", language: "en", is_email_verified: true, landlord_verified: false },
   tenant: { id: 1, phone: "+254733000001", email: "tenant@demo", full_name: "Amina Otieno", role: "tenant", language: "en", is_email_verified: true, landlord_verified: false },
   landlord: { id: 2, phone: "+254733000002", email: "landlord@demo", full_name: "Joseph Mwangi", role: "landlord", language: "en", is_email_verified: true, landlord_verified: true },
   provider: { id: 3, phone: "+254733000003", email: "provider@demo", full_name: "Sam Mover", role: "provider", language: "en", is_email_verified: true, landlord_verified: false },
 };
+const users = demoUsers;
 let me: Me = users.tenant;
 const page = <T,>(results: T[]) => ({ count: results.length, next: null, previous: null, results });
+const mineIds = new Set([1, 2, 3, 4, 5]);
+const props = new Map<number, { name: string; estate: string; landmark: string; latitude: number; longitude: number }>();
+const countyAt = (lat: number, lng: number) => (lat < -3 ? "Mombasa" : lng > 36.6 && lng < 37.2 && lat > -1.25 && lng < 36.82 ? "Kiambu" : "Nairobi");
 const wait = () => new Promise((r) => setTimeout(r, 450)); // so the skeleton loaders are visible
 
 export async function demoApi(path: string, o: { method?: string; body?: unknown; query?: Record<string, unknown> }): Promise<any> {
   if (import.meta.env.MODE !== "test") await wait();
   const m = o.method ?? "GET";
   const q = o.query ?? {};
+  if (path === "/properties/" && m === "POST") {
+    const b = o.body as { name: string; estate: string; landmark: string; latitude: number; longitude: number };
+    const id = 100 + props.size; props.set(id, b); return { id, ...b };
+  }
+  if (path === "/units/" && m === "POST") {
+    const b = o.body as { property: number; label: string; unit_type: string; bedrooms: number; bathrooms: number; rent_amount: string; deposit_amount?: string; status: string; amenities: string[]; description: string; _photos?: string[] };
+    const p = props.get(b.property)!;
+    const id = Math.max(...units.map((u) => u.id)) + 1;
+    const u = mk(id, p.name, p.estate, countyAt(p.latitude, p.longitude), p.latitude, p.longitude, b.label, b.unit_type, b.bedrooms, b.bathrooms, Number(b.rent_amount), b.amenities, b.description, b.status);
+    if (b.deposit_amount) u.deposit_amount = Number(b.deposit_amount).toFixed(2);
+    u.landmark = p.landmark;
+    if (b._photos?.length) u.media = b._photos.map((url, i) => ({ id: id * 100 + i, url, kind: "photo", is_cover: i === 0 })) as typeof u.media;
+    units.push(u); mineIds.add(id);
+    return u;
+  }
+  const patch = path.match(/^\/units\/(\d+)\/$/);
+  if (patch && m === "PATCH") { const u = units.find((x) => x.id === Number(patch[1])); if (u) Object.assign(u, o.body); return u; }
   if (path === "/units/") {
     let r = units.filter((u) => (!q.q || JSON.stringify(u).toLowerCase().includes(String(q.q).toLowerCase())) && (!q.max_rent || Number(u.rent_amount) <= Number(q.max_rent)) && (!q.min_bedrooms || u.bedrooms >= Number(q.min_bedrooms)));
     if (q.county) r = r.filter((u) => ({ Nairobi: "1", Mombasa: "2", Kiambu: "3" } as Record<string, string>)[u.county_name ?? ""] === String(q.county));
-    return page(q.scope === "mine" ? units.slice(0, 5) : r);
+    return page(q.scope === "mine" ? units.filter((u) => mineIds.has(u.id)) : r.filter((u) => !mineIds.has(u.id) || true));
   }
   const unit = path.match(/^\/units\/(\d+)\/$/); if (unit) return units.find((u) => u.id === Number(unit[1])) ?? Promise.reject(new ApiError(404, "Not found."));
   if (path === "/geo/counties/") return [{ id: 1, name: "Nairobi" }, { id: 2, name: "Mombasa" }, { id: 3, name: "Kiambu" }];
@@ -91,7 +113,7 @@ export async function demoApi(path: string, o: { method?: string; body?: unknown
   if (path === "/auth/email/confirm/") return { detail: "Email confirmed." };
   if (path === "/auth/login/") {
     const id = String((o.body as { identifier?: string })?.identifier ?? "");
-    const role = id.startsWith("landlord") ? "landlord" : id.startsWith("provider") ? "provider" : "tenant";
+    const role = id.startsWith("landlord") ? "landlord" : id.startsWith("provider") ? "provider" : id.startsWith("admin") ? "admin" : "tenant";
     me = users[role];
     try { localStorage.setItem("demo-role", role); } catch { /* ignore */ }
     return { user: me, access: "demo", refresh: "demo" };
@@ -106,6 +128,12 @@ export async function demoApi(path: string, o: { method?: string; body?: unknown
   if (path === "/invoices/generate/") return { created: 1 };
   if (path === "/invoices/") return page(invoices);
   const pay = path.match(/^\/invoices\/(\d+)\/payments\/$/); if (pay) { const i = Math.max(0, invoices.findIndex((v) => v.id === Number(pay[1]))); invoices[i] = { ...invoices[i], status: "paid", paid_amount: invoices[i].amount, balance: "0.00" }; return invoices[i]; }
+  if (path === "/orders/active/") return { title: "13kg Gas Refill", eta: "4 mins away", step: 2, rider: { name: "Juma M.", plate: "KMFX 234G", rating: 4.9, trips: 180 } };
+  if (path === "/mpesa/summary/") return { unit: "Greenview Apts, Unit B-04", due_in_days: 3, due_day: "5th", total: "14500.00", items: [["House rent", "12000"], ["Water", "1500"], ["Garbage and security", "1000"]], paybill: "882200", account: "UNIT-B04", early_bird: "250", caretaker: { name: "Mzee Aggrey", office: "Estate office, instant WhatsApp" }, history: [{ title: "Rent payment", ref: "QK9284KL7", amount: "12000", note: "Complete", date: day(-30) }, { title: "Cooking gas refill (13kg)", ref: "QJ7102XP3", amount: "1250", note: "Delivered", date: day(-38) }, { title: "Water meter settlement", ref: "QH5519AA8", amount: "1400", note: "Complete", date: day(-57) }] };
+  if (path === "/chat/thread/") return { with: { name: "Mzee J. Ambani", unit: "Hillside Modern Apartments, Unit B-08", verified: true }, lease: { unit: "B-08", term: "12-month lease", rent: "12000", escrow: "12000", signed_by: "Mzee Ambani on " + day(-2) }, messages: [{ id: 1, from: "them", text: "Habari, I have reviewed your M-Pesa statement and National ID. Everything checks out. I just generated the digital lease above.", time: "10:14" }, { id: 2, from: "me", text: "Asante sana. Quick question about the water meter: is the 10,000L reserve gravity fed or pumped?", time: "10:18" }, { id: 3, from: "them", text: "It is gravity fed from the hills spring, so zero power outage disruption. You can test it during the viewing tomorrow.", time: "10:20" }], checklist: 14 };
+  if (path === "/pro/dashboard/") return { hub: "Kisumu and Nakuru base, high demand", surge: "+25% surge", status: "Accepting orders", today_total: "3450", trips: 6, request: { payout: "450", base: "350", tip: "100", seconds: 40, pickup: { place: "K-Gas Depot, Town Market", detail: "13kg LPG cylinder refill (28kg)", km: 1.2 }, drop: { place: "Greenview Heights, Unit B-04", detail: "Off the main highway", km: 2.8 } }, wallet: { balance: "8420", till: "481992" }, tasks: [{ id: 1, time: "11:30 AM today", title: "Plumbing callout and valve seal", amount: "800", place: "High school quarters" }, { id: 2, time: "02:00 PM today", title: "Clean water bowser dispatch", amount: "1200", place: "Market, commercial zone" }], hubs: [["Town centre", "38 open errands", true], ["Riverside", "24 errands, water", true], ["Junction", "16 repairs and gas", false], ["Highway", "19 boda drops", true]] };
+  if (path === "/admin/dashboard/") return { counties: ["HQ", "Nairobi", "Kisumu", "Nakuru", "Mombasa"], vault: { held: "4820000", cut: "144600", growth: "+18.4%", queue: 42 }, disputes: [{ id: "DSP-902", unit: "Central Flat 4B", title: "Borehole meter repair vs natural wear", amount: "4500", landlord: "Mzee Ambani", tenant: "Kevin Mudavadi", claim: "Claiming full deposit", note: "Pre-existing rust reported" }, { id: "DSP-641", unit: "Boda trip 6641", title: "Delayed 13kg gas delivery", amount: "1250", landlord: "", tenant: "", claim: "Escrow frozen", note: "Rider broke down on the highway. Customer waiting 78 minutes." }], kyc: [{ id: 1, name: "Harrison Otieno", role: "EPRA solar specialist", doc: "Certificate EPRA/SOL/2023/88912", kind: "provider" }, { id: 2, name: "Sunrise Plaza", role: "8 commercial stalls, title deed verified", doc: "County land rates clearance 2024/25", kind: "landlord" }], health: [["1420", "Active verified tenants", "+12%"], ["184", "Inspected rentals", "94% occupied"], ["58", "Boda and errand pros online", ""], ["99.8%", "M-Pesa success rate", "STK push"]] };
+  if (path === "/landlord/queue/") return { viewings: [{ id: 1, name: "Mercy Achieng", note: "2-bed master ensuite, Unit 4", budget: "12000", when: "Tomorrow, 2:30 PM" }], applications: [{ id: 1, name: "Kevin Mudavadi", note: "Certified public accountant", detail: "ID cleared, 6-month M-Pesa statement attached" }] };
   if (path === "/leases/") return m === "POST" ? { id: 2 } : page(me.role === "tenant" ? leases : leases);
   if (path === "/repairs/") return m === "POST" ? { id: 2 } : page(repairs);
   const rep = path.match(/^\/repairs\/(\d+)\/$/); if (rep) return repairs.find((r) => r.id === Number(rep[1])) ?? repairs[0];

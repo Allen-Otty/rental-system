@@ -40,7 +40,7 @@ const en = {
   "mg.tenants": "Tenants and leases", "mg.addTenant": "Add tenant", "mg.unit": "Unit", "mg.tenantName": "Tenant name", "mg.start": "Lease starts", "mg.end": "Lease ends", "mg.rent": "Monthly rent (KES)",
   "mg.repairsTitle": "Repair requests", "mg.assign": "Assign vendor", "mg.schedule": "Visit date and time",
   "status.paid": "Paid", "status.partial": "Part paid", "status.overdue": "Overdue", "status.unpaid": "Unpaid", "status.open": "Open", "status.scheduled": "Scheduled", "status.in_progress": "In progress",
-  "status.done": "Done", "status.closed": "Closed", "status.active": "Active", "status.ended": "Ended",
+  "status.available": "Available", "status.occupied": "Occupied", "status.done": "Done", "status.closed": "Closed", "status.active": "Active", "status.ended": "Ended",
   "th.home": "My home", "th.report": "Report a problem", "th.problem": "What is wrong?", "th.reported": "Problem reported. Your landlord has been told.",
   "pro.title": "Job requests", "pro.quote": "Send a quote", "pro.price": "Your price (KES)", "pro.note": "Message to the customer", "pro.sent": "Quote sent.",
 } as const;
@@ -84,7 +84,7 @@ const sw: Record<Key, string> = {
   "mg.tenants": "Wapangaji na mikataba", "mg.addTenant": "Ongeza mpangaji", "mg.unit": "Nyumba", "mg.tenantName": "Jina la mpangaji", "mg.start": "Mkataba unaanza", "mg.end": "Mkataba unaisha", "mg.rent": "Kodi ya mwezi (KES)",
   "mg.repairsTitle": "Maombi ya matengenezo", "mg.assign": "Mpe fundi", "mg.schedule": "Tarehe na saa ya ziara",
   "status.paid": "Imelipwa", "status.partial": "Imelipwa nusu", "status.overdue": "Imechelewa", "status.unpaid": "Haijalipwa", "status.open": "Wazi", "status.scheduled": "Imepangwa", "status.in_progress": "Inaendelea",
-  "status.done": "Imekamilika", "status.closed": "Imefungwa", "status.active": "Inatumika", "status.ended": "Imeisha",
+  "status.available": "Inapatikana", "status.occupied": "Imejaa", "status.done": "Imekamilika", "status.closed": "Imefungwa", "status.active": "Inatumika", "status.ended": "Imeisha",
   "th.home": "Nyumbani kwangu", "th.report": "Ripoti tatizo", "th.problem": "Tatizo ni nini?", "th.reported": "Tatizo limeripotiwa. Mwenye nyumba ameambiwa.",
   "pro.title": "Maombi ya kazi", "pro.quote": "Tuma bei", "pro.price": "Bei yako (KES)", "pro.note": "Ujumbe kwa mteja", "pro.sent": "Bei imetumwa.",
 };
@@ -107,3 +107,5 @@ export function I18nProvider({ children, initial }: { children: ReactNode; initi
 }
 export const useI18n = () => useContext(I18n);
 export const useT = () => useContext(I18n).t;
+/** Inline English/Kiswahili for the newer screens: L("English", "Kiswahili"). */
+export const useL = () => { const { lang } = useContext(I18n); return (en: string, sw: string) => (lang === "sw" ? sw : en); };
